@@ -22,7 +22,7 @@ export default function Sidebar() {
             <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
           </div>
           <h1 className="text-xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
-            SENTINEL-X
+            Project GAIA
           </h1>
         </div>
         <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest font-semibold">Security Operations</p>

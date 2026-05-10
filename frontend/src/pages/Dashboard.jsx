@@ -212,7 +212,7 @@ export default function Dashboard() {
                 <th className="px-4 py-3">Node ID</th>
                 <th className="px-4 py-3">Moisture</th>
                 <th className="px-4 py-3">Shake</th>
-                <th className="px-4 py-3">Tilt</th>
+                <th className="px-4 py-3">Motion</th>
                 <th className="px-4 py-3 text-right">Risk Score</th>
                 <th className="px-4 py-3 rounded-tr-lg">Alert Status</th>
               </tr>
@@ -224,7 +224,7 @@ export default function Dashboard() {
                   <td className="px-4 py-3 font-medium text-white">{t.node_id}</td>
                   <td className="px-4 py-3">{t.moisture}%</td>
                   <td className="px-4 py-3">{t.shake}</td>
-                  <td className="px-4 py-3">{t.tilt}°</td>
+                  <td className="px-4 py-3">{t.motion === 1 ? 'DETECTED' : 'None'}</td>
                   <td className="px-4 py-3 text-right font-mono">{t.risk_score.toFixed(1)}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
