@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { AlertTriangle, ShieldCheck, Activity, Wifi, ShieldX, ServerCrash } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, ShieldAlert, Activity, Wifi, ShieldX, ServerCrash } from 'lucide-react';
 
 // Use env variable or fallback to local backend for testing
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
