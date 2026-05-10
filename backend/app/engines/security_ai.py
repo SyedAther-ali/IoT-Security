@@ -16,10 +16,10 @@ request_history = {}
 RATE_LIMIT = 20 # Max requests per 10 seconds
 
 def check_security(db: Session, ip_address: str, payload_node_id: str, payload_api_key: str):
-    \"\"\"
+    """
     Analyzes the request for cybersecurity threats.
     Returns (is_allowed: bool, reason: str, event_type: str)
-    \"\"\"
+    """
     
     # 1. Check if IP is already blocked
     blocked = db.query(models.BlockedIP).filter(models.BlockedIP.ip_address == ip_address).first()

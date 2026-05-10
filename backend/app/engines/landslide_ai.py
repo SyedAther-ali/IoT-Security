@@ -1,8 +1,8 @@
 def analyze_landslide_risk(moisture: float, shake: int, tilt: float):
-    \"\"\"
+    """
     Analyzes sensor data to determine landslide risk.
     Returns a tuple of (risk_score (0-100), alert_severity (SAFE, WARNING, LANDSLIDE RISK), ai_action)
-    \"\"\"
+    """
     risk_score = 0.0
     severity = "SAFE"
     ai_action = "None"
