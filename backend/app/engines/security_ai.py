@@ -33,12 +33,25 @@ def check_security(db: Session, ip_address: str, payload_node_id: str, payload_a
     Returns (is_allowed: bool, reason: str, event_type: str)
     """
     
-    # 1. Check if IP is already blocked
+    now = datetime.utcnow()
+
+    # 1. Check if IP is already blocked and process Auto-Recovery
     blocked = db.query(models.BlockedIP).filter(models.BlockedIP.ip_address == ip_address).first()
     if blocked:
-        return False, f"IP blocked. Reason: {blocked.reason}", "blocked_ip_access"
-
-    now = datetime.utcnow()
+        # Auto-Recovery: Unblock after 30 seconds
+        if (now - blocked.blocked_at).total_seconds() > 30:
+            db.delete(blocked)
+            
+            # Reset node status if it exists
+            node = db.query(models.Node).filter(models.Node.node_id == payload_node_id).first()
+            if node:
+                node.status = "trusted"
+                
+            db.commit()
+            log_pipeline_stage(db, "RECOVER", f"Auto-Recovery complete for {ip_address}. Node restored to trusted state.")
+            # Let it continue to process the request normally now
+        else:
+            return False, f"IP blocked. Reason: {blocked.reason}", "blocked_ip_access"
 
     # 2. Rate Limiting (Flooding Detection)
     if ip_address not in request_history:

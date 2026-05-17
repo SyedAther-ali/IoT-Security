@@ -10,7 +10,12 @@ router = APIRouter()
 @router.post("/sensor-data", response_model=schemas.SensorDataResponse)
 async def receive_sensor_data(data: schemas.SensorDataCreate, request: Request, db: Session = Depends(get_db)):
     # 1. Cybersecurity Check
-    client_ip = request.client.host
+    # Use X-Forwarded-For to get the real IP if behind Render's load balancer
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        client_ip = forwarded_for.split(",")[0].strip()
+    else:
+        client_ip = request.client.host
     
     is_allowed, reason, event_type = security_ai.check_security(
         db=db,
