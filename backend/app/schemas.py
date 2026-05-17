@@ -7,11 +7,11 @@ class SensorDataCreate(BaseModel):
     api_key: str
     motion: int = Field(ge=0, le=1) # 0 or 1
     temperature: Optional[float] = None # Added for DHT11
-    moisture: float = Field(ge=0.0, le=100.0) # percentage
+    moisture: float # Removed constraints so we can simulate impossible ranges
     shake: int = Field(ge=0) 
-    tilt: float = Field(ge=-180.0, le=180.0) # degrees
+    tilt: float # Removed constraints so we can simulate impossible ranges
     sound: float = Field(ge=0.0) # dB
-    timestamp: datetime
+    timestamp: Optional[datetime] = None
 
 class SensorDataResponse(BaseModel):
     id: int
