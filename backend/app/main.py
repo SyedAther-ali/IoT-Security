@@ -20,6 +20,12 @@ app.add_middleware(
 app.include_router(sensors.router, tags=["Sensors"])
 app.include_router(dashboard.router, tags=["Dashboard"])
 
+from app.mqtt_client import start_mqtt_client
+
+@app.on_event("startup")
+def startup_event():
+    start_mqtt_client()
+
 @app.get("/")
 def read_root():
     return {"message": "API is running. Go to /docs for Swagger UI"}

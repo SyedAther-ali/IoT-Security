@@ -19,6 +19,7 @@ class SensorData(Base):
     shake = Column(Integer)
     tilt = Column(Float)
     sound = Column(Float)
+    tampered = Column(Boolean, default=False)
     risk_score = Column(Float, default=0.0)
     alert_severity = Column(String, default="SAFE")
     timestamp = Column(DateTime, default=datetime.utcnow)

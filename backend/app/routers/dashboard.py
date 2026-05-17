@@ -57,6 +57,33 @@ def get_alerts(db: Session = Depends(get_db)):
     ).order_by(models.SensorData.timestamp.desc()).limit(20).all()
     return alerts
 
+import paho.mqtt.publish as publish
+MQTT_BROKER = "broker.hivemq.com"
+TOPIC_COMMAND = "gaia/syedather/command"
+
+@router.post("/nodes/{node_id}/isolate")
+def isolate_node(node_id: str, db: Session = Depends(get_db)):
+    node = db.query(models.Node).filter(models.Node.node_id == node_id).first()
+    if not node:
+        return {"error": "Node not found"}
+        
+    node.status = "isolated"
+    db.commit()
+    
+    # Instantly trigger MQTT response
+    try:
+        publish.single(f"{TOPIC_COMMAND}/{node_id}", "BLOCKED", hostname=MQTT_BROKER)
+    except Exception as e:
+        print(f"Failed to publish MQTT block command: {e}")
+        
+    # Log it
+    from app.engines.security_ai import log_security_event, log_pipeline_stage
+    log_pipeline_stage(db, "CONTAIN", f"Admin manually initiated Kill Switch for {node_id}")
+    log_pipeline_stage(db, "ERADICATE", f"Hardware isolated. Zero-Trust lockdown complete.")
+    log_security_event(db, "ADMIN_DASHBOARD", node_id, "manual_isolation", "Node manually isolated by admin kill switch.")
+    
+    return {"message": f"Node {node_id} isolated"}
+
 @router.get("/threats")
 def get_threats(db: Session = Depends(get_db)):
     # Get aggregate counts of event types

@@ -26,18 +26,39 @@ async def receive_sensor_data(data: schemas.SensorDataCreate, request: Request, 
 
     if not is_allowed:
         security_ai.log_security_event(db, client_ip, data.node_id, event_type, reason)
+        try:
+            from paho.mqtt import publish
+            publish.single(f"gaia/syedather/command/{data.node_id}", "BLOCKED", hostname="broker.hivemq.com")
+        except Exception:
+            pass
         raise HTTPException(status_code=403, detail="Access Denied: " + reason)
 
     # Validate physical impossibility (Impossible Ranges Attack)
     if data.moisture < 0 or data.moisture > 100 or data.tilt < -180 or data.tilt > 180:
         security_ai.handle_impossible_data(db, client_ip, data.node_id, data.moisture, data.tilt)
+        try:
+            from paho.mqtt import publish
+            publish.single(f"gaia/syedather/command/{data.node_id}", "BLOCKED", hostname="broker.hivemq.com")
+        except Exception:
+            pass
         raise HTTPException(status_code=400, detail="Invalid Sensor Data Range")
 
-    # 2. Landslide AI Analysis
+    # Validate physical hardware tampering
+    if data.tampered:
+        security_ai.handle_tampering(db, client_ip, data.node_id)
+        try:
+            from paho.mqtt import publish
+            publish.single(f"gaia/syedather/command/{data.node_id}", "BLOCKED", hostname="broker.hivemq.com")
+        except Exception:
+            pass
+        raise HTTPException(status_code=403, detail="HARDWARE TAMPERING DETECTED")
+
+    # 2. Landslide AI Analysis (Now using Scikit-Learn ML)
     risk_score, severity, ai_action = landslide_ai.analyze_landslide_risk(
         moisture=data.moisture,
         shake=data.shake,
-        tilt=data.tilt
+        tilt=data.tilt,
+        temperature=data.temperature if data.temperature is not None else 25.0
     )
 
     # 3. Ensure Node Exists
@@ -57,6 +78,7 @@ async def receive_sensor_data(data: schemas.SensorDataCreate, request: Request, 
         shake=data.shake,
         tilt=data.tilt,
         sound=data.sound,
+        tampered=data.tampered,
         risk_score=risk_score,
         alert_severity=severity,
         timestamp=data.timestamp or datetime.utcnow()
@@ -65,6 +87,11 @@ async def receive_sensor_data(data: schemas.SensorDataCreate, request: Request, 
     db.commit()
     db.refresh(sensor_entry)
 
-    # If action required, log it (can be added to a separate table, but returning it is good for now)
+    # Publish Instant Status Back to Node over MQTT
+    try:
+        from paho.mqtt import publish
+        publish.single(f"gaia/syedather/command/{data.node_id}", severity, hostname="broker.hivemq.com")
+    except Exception:
+        pass
 
     return sensor_entry

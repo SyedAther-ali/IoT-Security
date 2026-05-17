@@ -96,6 +96,11 @@ def check_security(db: Session, ip_address: str, payload_node_id: str, payload_a
         _mark_node_suspicious(db, payload_node_id)
         return False, "Node ID Spoofing Detected", "spoofing"
 
+    # 5. Check if node is isolated by Admin
+    node = db.query(models.Node).filter(models.Node.node_id == payload_node_id).first()
+    if node and node.status == "isolated":
+        return False, "ISOLATED BY ADMIN", "isolated_node"
+
     return True, "Safe", "safe"
 
 def handle_impossible_data(db: Session, ip_address: str, node_id: str, moisture: float, tilt: float):
@@ -113,6 +118,23 @@ def handle_impossible_data(db: Session, ip_address: str, node_id: str, moisture:
     log_security_event(db, ip_address, node_id, "data_poisoning", "Physically impossible telemetry values.")
 
 
+def handle_tampering(db: Session, ip_address: str, node_id: str):
+    """Handles physical hardware tampering (Lid Open switch)"""
+    log_pipeline_stage(db, "INGEST", f"Hardware interrupt received from {node_id}.")
+    log_pipeline_stage(db, "DETECT", f"CRITICAL: Physical Tamper Switch activated on Node {node_id}!")
+    log_pipeline_stage(db, "ANALYZE", f"SIM Classification: Physical Hardware Intrusion. Confidence: 100%.")
+    log_pipeline_stage(db, "CONTAIN", f"Isolating compromised hardware from Data Lake.")
+    log_pipeline_stage(db, "ERADICATE", f"Locking down node communication.")
+    
+    _block_ip(db, ip_address, "Physical Hardware Tampering")
+    
+    node = db.query(models.Node).filter(models.Node.node_id == node_id).first()
+    if node:
+        node.status = "isolated"
+        db.commit()
+        
+    log_security_event(db, ip_address, node_id, "hardware_tampering", "Physical device casing breached.")
+
 def log_security_event(db: Session, ip_address: str, node_id: str, event_type: str, description: str):
     log = models.SecurityLog(
         ip_address=ip_address,
@@ -123,10 +145,16 @@ def log_security_event(db: Session, ip_address: str, node_id: str, event_type: s
     db.add(log)
     db.commit()
 
+from app.email_service import send_security_alert
+
 def _block_ip(db: Session, ip_address: str, reason: str):
-    blocked = models.BlockedIP(ip_address=ip_address, reason=reason)
-    db.add(blocked)
-    db.commit()
+    existing = db.query(models.BlockedIP).filter(models.BlockedIP.ip_address == ip_address).first()
+    if not existing:
+        blocked = models.BlockedIP(ip_address=ip_address, reason=reason)
+        db.add(blocked)
+        db.commit()
+        log_pipeline_stage(db, "ERADICATE", f"IP {ip_address} permanently banned at gateway level.")
+        send_security_alert("SYSTEM", ip_address, "SECURITY_BLOCK", reason)
 
 def _mark_node_suspicious(db: Session, node_id: str):
     node = db.query(models.Node).filter(models.Node.node_id == node_id).first()

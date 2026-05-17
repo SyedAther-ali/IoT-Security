@@ -165,6 +165,22 @@ export default function NodeNetwork() {
                       <div className="text-safe font-mono">{node.status === 'Offline' ? '0%' : '99.9%'}</div>
                     </div>
                   </div>
+                  
+                  {node.status !== 'isolated' && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if(window.confirm(`Are you sure you want to isolate node ${node.node_id}? This will trigger a physical hardware lockdown.`)) {
+                          axios.post(`${API_URL}/nodes/${node.node_id}/isolate`).then(() => {
+                            alert("Node isolated!");
+                          });
+                        }
+                      }}
+                      className="mt-4 w-full py-2 bg-danger/10 hover:bg-danger/30 text-danger border border-danger/30 rounded text-xs font-bold tracking-wider uppercase transition-colors"
+                    >
+                      KILL SWITCH: ISOLATE NODE
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

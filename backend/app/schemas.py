@@ -11,6 +11,7 @@ class SensorDataCreate(BaseModel):
     shake: int = Field(ge=0) 
     tilt: float # Removed constraints so we can simulate impossible ranges
     sound: float = Field(ge=0.0) # dB
+    tampered: bool = False
     timestamp: Optional[datetime] = None
 
 class SensorDataResponse(BaseModel):
@@ -22,6 +23,7 @@ class SensorDataResponse(BaseModel):
     shake: int
     tilt: float
     sound: float
+    tampered: bool
     risk_score: float
     alert_severity: str
     timestamp: datetime
