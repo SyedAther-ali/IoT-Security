@@ -43,7 +43,7 @@ def phase_1_stealth():
             "shake": 1,
             "tilt": 0.5,
             "sound": 40.0,
-            "timestamp": None
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         }
         status, text = send_payload(payload)
         print_attacker(f"[>] Stealth Payload {i+1} sent. Response: {status}", "green")
@@ -63,7 +63,7 @@ def phase_2_poisoning():
         "shake": 9999,
         "tilt": 999.0, # Impossible (-180 to 180)
         "sound": 9999.0,
-        "timestamp": None
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     }
     status, text = send_payload(payload)
     print_attacker(f"[>] Malicious Payload sent. Response: {status} - {text}", "red")
@@ -77,7 +77,7 @@ def phase_3_ddos():
         payload = {
             "node_id": NODE_ID,
             "api_key": API_KEY,
-            "motion": 0, "temperature": 25.0, "moisture": 50.0, "shake": 0, "tilt": 0.0, "sound": 30.0, "timestamp": None
+            "motion": 0, "temperature": 25.0, "moisture": 50.0, "shake": 0, "tilt": 0.0, "sound": 30.0, "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         }
         status, _ = send_payload(payload)
         return status
