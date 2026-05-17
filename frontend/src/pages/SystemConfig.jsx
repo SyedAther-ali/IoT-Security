@@ -1,10 +1,48 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Settings, Sliders, Key, Shield, Zap } from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 export default function SystemConfig() {
   const [sensitivity, setSensitivity] = useState(85);
   const [autoBan, setAutoBan] = useState(true);
   const [deepInspect, setDeepInspect] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/settings`);
+        if (res.data) {
+          setSensitivity(res.data.sensitivity);
+          setAutoBan(res.data.auto_ban);
+          setDeepInspect(res.data.deep_inspect);
+        }
+      } catch (err) {
+        console.error("Failed to load settings", err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const updateSetting = async (key, value) => {
+    setSaving(true);
+    try {
+      const current = { sensitivity, auto_ban: autoBan, deep_inspect: deepInspect };
+      current[key] = value;
+      await axios.post(`${API_URL}/settings`, current);
+      
+      // Update local state
+      if (key === 'sensitivity') setSensitivity(value);
+      if (key === 'auto_ban') setAutoBan(value);
+      if (key === 'deep_inspect') setDeepInspect(value);
+    } catch (err) {
+      console.error("Failed to save settings", err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const apiKeys = [
     { name: 'Production Backend API', key: 'ga_prod_*********************8x2', lastUsed: '2 mins ago' },
@@ -18,6 +56,7 @@ export default function SystemConfig() {
         <h2 className="text-3xl font-bold tracking-tight text-white mb-2 flex items-center gap-3">
           <Settings className="text-slate-400" size={32} />
           System Configuration
+          {saving && <span className="text-xs text-blue-400 animate-pulse ml-4 font-mono">Saving...</span>}
         </h2>
         <p className="text-slate-400">Global security thresholds, AI parameters, and access management</p>
       </header>
@@ -42,6 +81,7 @@ export default function SystemConfig() {
                 min="0" max="100" 
                 value={sensitivity} 
                 onChange={(e) => setSensitivity(e.target.value)}
+                onMouseUp={(e) => updateSetting('sensitivity', parseInt(e.target.value))}
                 className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
               <p className="text-xs text-slate-500 mt-2">Higher sensitivity may result in more false positives but catches stealthier attacks.</p>
@@ -59,7 +99,7 @@ export default function SystemConfig() {
                   </div>
                 </div>
                 <button 
-                  onClick={() => setAutoBan(!autoBan)}
+                  onClick={() => updateSetting('auto_ban', !autoBan)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoBan ? 'bg-safe' : 'bg-slate-700'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoBan ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -75,7 +115,7 @@ export default function SystemConfig() {
                   </div>
                 </div>
                 <button 
-                  onClick={() => setDeepInspect(!deepInspect)}
+                  onClick={() => updateSetting('deep_inspect', !deepInspect)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${deepInspect ? 'bg-blue-500' : 'bg-slate-700'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${deepInspect ? 'translate-x-6' : 'translate-x-1'}`} />

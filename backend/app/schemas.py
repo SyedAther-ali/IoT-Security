@@ -6,6 +6,7 @@ class SensorDataCreate(BaseModel):
     node_id: str
     api_key: str
     motion: int = Field(ge=0, le=1) # 0 or 1
+    temperature: Optional[float] = None # Added for DHT11
     moisture: float = Field(ge=0.0, le=100.0) # percentage
     shake: int = Field(ge=0) 
     tilt: float = Field(ge=-180.0, le=180.0) # degrees
@@ -16,6 +17,7 @@ class SensorDataResponse(BaseModel):
     id: int
     node_id: str
     motion: int
+    temperature: Optional[float]
     moisture: float
     shake: int
     tilt: float
@@ -41,6 +43,25 @@ class SecurityLogResponse(BaseModel):
     event_type: str
     description: str
     timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+class SystemSettingsBase(BaseModel):
+    sensitivity: int = Field(ge=0, le=100)
+    auto_ban: bool
+    deep_inspect: bool
+
+class SystemSettingsResponse(SystemSettingsBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+class BlockedIPResponse(BaseModel):
+    ip_address: str
+    reason: str
+    blocked_at: datetime
 
     class Config:
         from_attributes = True

@@ -1,29 +1,31 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { ShieldAlert, Map, AlertOctagon, Activity, Globe, Lock } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+
 export default function ThreatIntelligence() {
   const [threatData, setThreatData] = useState([]);
+  const [recentThreats, setRecentThreats] = useState([]);
 
   useEffect(() => {
-    // Mock data for threat vectors
-    setThreatData([
-      { name: 'DDoS', attacks: 4000, color: '#ef4444' },
-      { name: 'SQLi', attacks: 3000, color: '#f97316' },
-      { name: 'Brute Force', attacks: 2000, color: '#eab308' },
-      { name: 'XSS', attacks: 2780, color: '#3b82f6' },
-      { name: 'Zero-Day', attacks: 1890, color: '#a855f7' },
-      { name: 'Botnet', attacks: 2390, color: '#14b8a6' },
-    ]);
-  }, []);
+    const fetchData = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/threats`);
+        if (response.data) {
+          setThreatData(response.data.vectors || []);
+          setRecentThreats(response.data.recent_incidents || []);
+        }
+      } catch (error) {
+        console.error("Error fetching threat data", error);
+      }
+    };
 
-  const recentThreats = [
-    { ip: '192.168.1.105', origin: 'Russia', type: 'DDoS Attempt', status: 'Blocked', time: '10:45 AM' },
-    { ip: '45.33.22.11', origin: 'China', type: 'Brute Force', status: 'Blocked', time: '10:42 AM' },
-    { ip: '10.0.0.5', origin: 'Internal', type: 'Unauthorized Access', status: 'Investigating', time: '10:38 AM' },
-    { ip: '88.144.22.1', origin: 'North Korea', type: 'Malware Payload', status: 'Isolated', time: '10:15 AM' },
-    { ip: '104.22.3.4', origin: 'Unknown', type: 'Port Scan', status: 'Blocked', time: '09:59 AM' },
-  ];
+    fetchData();
+    const interval = setInterval(fetchData, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="p-8 space-y-6 h-full flex flex-col">
@@ -73,7 +75,7 @@ export default function ThreatIntelligence() {
               <BarChart data={threatData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={true} vertical={false} />
                 <XAxis type="number" stroke="#475569" fontSize={12} />
-                <YAxis dataKey="name" type="category" stroke="#475569" fontSize={12} width={80} />
+                <YAxis dataKey="name" type="category" stroke="#475569" fontSize={12} width={120} />
                 <Tooltip 
                   cursor={{fill: '#1e293b', opacity: 0.4}}
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px' }}
@@ -81,7 +83,7 @@ export default function ThreatIntelligence() {
                 />
                 <Bar dataKey="attacks" radius={[0, 4, 4, 0]}>
                   {threatData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.color || '#ef4444'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -102,27 +104,21 @@ export default function ThreatIntelligence() {
               <tr>
                 <th className="px-4 py-3 rounded-tl-lg">Timestamp</th>
                 <th className="px-4 py-3">Source IP</th>
-                <th className="px-4 py-3">Origin</th>
+                <th className="px-4 py-3">Node Target</th>
                 <th className="px-4 py-3">Attack Type</th>
-                <th className="px-4 py-3 rounded-tr-lg">Action Taken</th>
+                <th className="px-4 py-3 rounded-tr-lg">Description</th>
               </tr>
             </thead>
             <tbody>
-              {recentThreats.map((threat, idx) => (
+              {recentThreats.length === 0 ? (
+                <tr><td colSpan="5" className="text-center py-4">No recent threats logged.</td></tr>
+              ) : recentThreats.map((threat, idx) => (
                 <tr key={idx} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs">{threat.time}</td>
-                  <td className="px-4 py-3 font-mono text-white">{threat.ip}</td>
-                  <td className="px-4 py-3">{threat.origin}</td>
-                  <td className="px-4 py-3 text-warning">{threat.type}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                      threat.status === 'Blocked' ? 'bg-danger/20 text-danger' : 
-                      threat.status === 'Isolated' ? 'bg-purple-500/20 text-purple-400' : 
-                      'bg-warning/20 text-warning animate-pulse'
-                    }`}>
-                      {threat.status}
-                    </span>
-                  </td>
+                  <td className="px-4 py-3 font-mono text-xs">{new Date(threat.timestamp).toLocaleString()}</td>
+                  <td className="px-4 py-3 font-mono text-white">{threat.ip_address}</td>
+                  <td className="px-4 py-3">{threat.node_id || 'Global'}</td>
+                  <td className="px-4 py-3 text-warning uppercase font-bold">{threat.event_type.replace('_', ' ')}</td>
+                  <td className="px-4 py-3 text-slate-300">{threat.description}</td>
                 </tr>
               ))}
             </tbody>

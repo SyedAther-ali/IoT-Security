@@ -25,9 +25,7 @@ async def receive_sensor_data(data: schemas.SensorDataCreate, request: Request, 
 
     # Validate physical impossibility (Impossible Ranges Attack)
     if data.moisture < 0 or data.moisture > 100 or data.tilt < -180 or data.tilt > 180:
-        security_ai._block_ip(db, client_ip, "Impossible Sensor Range Detected")
-        security_ai._mark_node_suspicious(db, data.node_id)
-        security_ai.log_security_event(db, client_ip, data.node_id, "invalid_range", "Impossible Sensor Range")
+        security_ai.handle_impossible_data(db, client_ip, data.node_id, data.moisture, data.tilt)
         raise HTTPException(status_code=400, detail="Invalid Sensor Data Range")
 
     # 2. Landslide AI Analysis
@@ -49,6 +47,7 @@ async def receive_sensor_data(data: schemas.SensorDataCreate, request: Request, 
     sensor_entry = models.SensorData(
         node_id=data.node_id,
         motion=data.motion,
+        temperature=data.temperature,
         moisture=data.moisture,
         shake=data.shake,
         tilt=data.tilt,

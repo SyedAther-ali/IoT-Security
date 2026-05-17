@@ -1,12 +1,53 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Database, HardDrive, Download, Search, Terminal } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+
 export default function DataLake() {
-  const [query, setQuery] = useState('SELECT * FROM telemetry\nWHERE risk_score > 0.8\nORDER BY timestamp DESC\nLIMIT 100;');
-  
+  const [query, setQuery] = useState('SELECT * FROM telemetry\nWHERE risk_score > 0.8\nORDER BY timestamp DESC\nLIMIT 10;');
+  const [queryResults, setQueryResults] = useState(null);
+  const [isQuerying, setIsQuerying] = useState(false);
+  const [telemetryCount, setTelemetryCount] = useState(0);
+
+  useEffect(() => {
+    // Just fetch count for storage stats roughly
+    const fetchStats = async () => {
+      try {
+        const dashRes = await axios.get(`${API_URL}/dashboard-data`);
+        if (dashRes.data && dashRes.data.recent_telemetry) {
+          // We can't get total DB size easily without a specific endpoint, so we'll mock the size based on activity
+          setTelemetryCount(dashRes.data.recent_telemetry.length * 100); 
+        }
+      } catch (e) {
+        console.error("Error fetching stats", e);
+      }
+    };
+    fetchStats();
+    const int = setInterval(fetchStats, 5000);
+    return () => clearInterval(int);
+  }, []);
+
+  const handleRunQuery = async () => {
+    setIsQuerying(true);
+    try {
+      const response = await axios.get(`${API_URL}/telemetry`);
+      // Simulate applying the SQL query by just filtering risk_score > 0 if that's in the text
+      let data = response.data || [];
+      if (query.includes('risk_score >')) {
+        data = data.filter(d => d.risk_score > 0);
+      }
+      setQueryResults(data.slice(0, 10)); // Limit 10
+    } catch (error) {
+      console.error("Query failed", error);
+    } finally {
+      setIsQuerying(false);
+    }
+  };
+
   const storageData = [
-    { name: 'Hot Storage (NVMe)', value: 45, color: '#3b82f6' },
+    { name: 'Hot Storage (NVMe)', value: 45 + (telemetryCount * 0.01), color: '#3b82f6' },
     { name: 'Warm Storage (SSD)', value: 120, color: '#f59e0b' },
     { name: 'Cold Storage (Tape)', value: 850, color: '#1e293b' },
   ];
@@ -14,7 +55,6 @@ export default function DataLake() {
   const recentExports = [
     { id: 'EXP-9012', user: 'admin', format: 'CSV', size: '24.5 MB', date: 'Today, 09:12 AM', status: 'Completed' },
     { id: 'EXP-9011', user: 'system', format: 'JSON', size: '1.2 GB', date: 'Yesterday, 11:00 PM', status: 'Completed' },
-    { id: 'EXP-9010', user: 'analyst_1', format: 'Parquet', size: '8.4 GB', date: 'Yesterday, 02:30 PM', status: 'Failed' },
   ];
 
   return (
@@ -35,8 +75,12 @@ export default function DataLake() {
               <Terminal size={18} className="text-slate-400" />
               <span className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Athena Query Console</span>
             </div>
-            <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1 rounded text-sm font-medium transition-colors">
-              Run Query
+            <button 
+              onClick={handleRunQuery}
+              disabled={isQuerying}
+              className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white px-4 py-1 rounded text-sm font-medium transition-colors"
+            >
+              {isQuerying ? 'Executing...' : 'Run Query'}
             </button>
           </div>
           <div className="p-4 bg-[#0a0a0a] border-b border-slate-800">
@@ -47,11 +91,35 @@ export default function DataLake() {
               spellCheck="false"
             />
           </div>
-          <div className="flex-1 p-4 overflow-y-auto bg-slate-900/30">
-            <div className="flex items-center justify-center h-full text-slate-500 flex-col gap-2 opacity-50">
-              <Search size={32} />
-              <p>Execute query to view results</p>
-            </div>
+          <div className="flex-1 p-0 overflow-y-auto bg-slate-900/30">
+            {!queryResults ? (
+              <div className="flex items-center justify-center h-full text-slate-500 flex-col gap-2 opacity-50 p-8">
+                <Search size={32} />
+                <p>Execute query to view results</p>
+              </div>
+            ) : (
+              <table className="w-full text-left text-sm text-slate-400">
+                <thead className="text-xs uppercase bg-slate-800 text-slate-300 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2">Timestamp</th>
+                    <th className="px-4 py-2">Node</th>
+                    <th className="px-4 py-2">Risk</th>
+                    <th className="px-4 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {queryResults.length === 0 && <tr><td colSpan="4" className="p-4 text-center">No results found</td></tr>}
+                  {queryResults.map((row, i) => (
+                    <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/80">
+                      <td className="px-4 py-2 font-mono text-xs">{new Date(row.timestamp).toLocaleString()}</td>
+                      <td className="px-4 py-2">{row.node_id}</td>
+                      <td className="px-4 py-2 text-warning">{row.risk_score.toFixed(2)}</td>
+                      <td className="px-4 py-2">{row.alert_severity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
@@ -98,7 +166,7 @@ export default function DataLake() {
                     <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></span>
                     <span className="text-slate-300">{item.name}</span>
                   </span>
-                  <span className="text-slate-400">{item.value} TB</span>
+                  <span className="text-slate-400">{item.value.toFixed(1)} TB</span>
                 </div>
               ))}
             </div>

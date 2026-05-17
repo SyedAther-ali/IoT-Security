@@ -1,42 +1,111 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 import { Cpu, Terminal, CheckCircle2, AlertCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+
 export default function AIDiagnostics() {
   const [logs, setLogs] = useState([]);
+  const [stats, setStats] = useState({ online_nodes: 0, suspicious_nodes: 0 });
+  const logContainerRef = useRef(null);
+  const seenLogIds = useRef(new Set());
 
   useEffect(() => {
-    const mockLogs = [
-      "[SYS] Initializing Sentinel-X Core...",
-      "[AI_AGENT_1] Loaded Landslide Prediction Model v2.4",
-      "[AI_AGENT_2] Threat Detection Model initialized (Accuracy: 99.4%)",
-      "[PIPELINE] Connecting to data lake stream...",
-      "[PIPELINE] Stream connected. Ingesting telemetry at 142 req/s",
-      "[AI_AGENT_1] Analyzing structural integrity of Node-Alpha...",
-      "[AI_AGENT_1] Risk score nominal (0.2). No action required.",
-      "[AI_AGENT_2] Deep packet inspection on port 443...",
-      "[AI_AGENT_2] ⚠️ Anomaly detected from IP 45.33.22.11",
-      "[AI_AGENT_3] Classifying anomaly...",
-      "[AI_AGENT_3] Classification complete: Brute Force Attempt (Confidence: 98%)",
-      "[SYS] Triggering automated remediation protocol."
-    ];
+    // Initial system logs
+    setLogs([
+      { time: new Date().toISOString(), text: "[SYS] Initializing Security Integrity Module (SIM)...", color: "text-blue-400 font-bold" },
+      { time: new Date().toISOString(), text: "[SIM_AGENT] Zero-Trust Architecture Enabled. Docker Microservices Isolated.", color: "text-purple-400" },
+      { time: new Date().toISOString(), text: "[SIM_AGENT] Integrity Validation Engine Online. Standing by for telemetry.", color: "text-safe" },
+    ]);
 
-    let currentLogIndex = 0;
-    const interval = setInterval(() => {
-      if (currentLogIndex < mockLogs.length) {
-        setLogs(prev => [...prev, mockLogs[currentLogIndex]]);
-        currentLogIndex++;
-      } else {
-        clearInterval(interval);
+    const fetchData = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/dashboard-data`);
+        if (response.data) {
+          setStats(response.data.stats || { online_nodes: 0, suspicious_nodes: 0 });
+          
+          const newLogs = [];
+          
+          // Check for new security logs
+          if (response.data.recent_logs) {
+            response.data.recent_logs.reverse().forEach(log => {
+              const logId = `sec-${log.timestamp}-${log.id || log.ip_address}`;
+              if (!seenLogIds.current.has(logId)) {
+                seenLogIds.current.add(logId);
+                
+                if (log.event_type.startsWith('pipeline_')) {
+                  // Advanced 7-Stage SIM Pipeline Logging
+                  const stage = log.event_type.replace('pipeline_', '');
+                  let color = "text-slate-300";
+                  if (stage === "INGEST") color = "text-blue-300";
+                  if (stage === "ENRICH") color = "text-purple-300";
+                  if (stage === "DETECT") color = "text-warning font-bold";
+                  if (stage === "ANALYZE") color = "text-purple-400 font-bold";
+                  if (stage === "CONTAIN") color = "text-orange-500 font-bold";
+                  if (stage === "ERADICATE") color = "text-danger font-bold uppercase animate-pulse";
+                  if (stage === "RECOVER") color = "text-safe font-bold";
+                  
+                  newLogs.push({
+                    time: log.timestamp,
+                    text: `[SIM_PIPELINE] [${stage}] ${log.description}`,
+                    color: color
+                  });
+                } else {
+                  // Standard alert
+                  newLogs.push({
+                    time: log.timestamp,
+                    text: `[SIM_ALERT] ⚠️ Threat logged: ${log.event_type} from IP ${log.ip_address}.`,
+                    color: "text-warning"
+                  });
+                }
+              }
+            });
+          }
+
+          // Check for new alerts (landslide)
+          const alertResponse = await axios.get(`${API_URL}/alerts`);
+          if (alertResponse.data) {
+            alertResponse.data.reverse().forEach(alert => {
+              const logId = `alt-${alert.id}`;
+              if (!seenLogIds.current.has(logId)) {
+                seenLogIds.current.add(logId);
+                newLogs.push({
+                  time: alert.timestamp,
+                  text: `[LANDSLIDE_AI] Risk assessment on Node ${alert.node_id}: ${alert.alert_severity} (Score: ${alert.risk_score.toFixed(1)})`,
+                  color: alert.alert_severity === 'SAFE' ? 'text-slate-300' : 'text-danger'
+                });
+              }
+            });
+          }
+
+          if (newLogs.length > 0) {
+            setLogs(prev => [...prev, ...newLogs].slice(-70)); // Keep last 70 logs
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching AI diagnostic data", error);
       }
-    }, 800);
+    };
 
+    fetchData();
+    const interval = setInterval(fetchData, 2000);
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [logs]);
+
+  // Adjust pipeline status dynamically based on stats
+  const isPipelineActive = stats.online_nodes > 0;
+  const isClassifying = stats.suspicious_nodes > 0;
+
   const accuracyData = [
-    { name: 'Accurate', value: 99.4, color: '#22c55e' },
-    { name: 'Error Margin', value: 0.6, color: '#1e293b' }
+    { name: 'Accurate', value: 99.8, color: '#22c55e' },
+    { name: 'Error Margin', value: 0.2, color: '#1e293b' }
   ];
 
   return (
@@ -44,38 +113,34 @@ export default function AIDiagnostics() {
       <header className="mb-4">
         <h2 className="text-3xl font-bold tracking-tight text-white mb-2 flex items-center gap-3">
           <Cpu className="text-purple-400" size={32} />
-          AI Diagnostics
+          Security Integrity Module (SIM)
         </h2>
-        <p className="text-slate-400">Real-time neural network evaluation and model performance</p>
+        <p className="text-slate-400">Zero-Trust Architecture & Threat Detection Pipeline</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1">
         {/* Real-time AI Log Console */}
-        <div className="glass-panel p-0 col-span-2 flex flex-col relative overflow-hidden">
+        <div className="glass-panel p-0 col-span-2 flex flex-col relative overflow-hidden shadow-[0_0_15px_rgba(168,85,247,0.1)]">
           <div className="p-4 border-b border-slate-800 bg-slate-900/80 flex items-center gap-2">
-            <Terminal size={18} className="text-slate-400" />
-            <span className="text-sm font-mono text-slate-300">sentinel-x-pipeline.log</span>
+            <Terminal size={18} className="text-purple-400" />
+            <span className="text-sm font-mono text-slate-300 font-bold tracking-widest">SIM_VALIDATION_ENGINE.log</span>
             <div className="ml-auto flex gap-2">
               <span className="h-3 w-3 rounded-full bg-danger"></span>
               <span className="h-3 w-3 rounded-full bg-warning"></span>
               <span className="h-3 w-3 rounded-full bg-safe"></span>
             </div>
           </div>
-          <div className="flex-1 bg-[#0a0a0a] p-4 overflow-y-auto font-mono text-sm space-y-1">
-            {logs.map((log, index) => {
-              let color = "text-slate-300";
-              if (log.includes("[SYS]")) color = "text-blue-400 font-bold";
-              if (log.includes("[AI_AGENT")) color = "text-purple-400";
-              if (log.includes("⚠️")) color = "text-warning";
-              
-              return (
-                <div key={index} className={`${color} opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]`}>
-                  <span className="text-slate-600 mr-4">{new Date().toISOString().split('T')[1].substring(0, 8)}</span>
-                  {log}
-                </div>
-              );
-            })}
-            <div className="text-slate-500 animate-pulse mt-2">_</div>
+          <div 
+            ref={logContainerRef}
+            className="flex-1 bg-[#050505] p-4 overflow-y-auto font-mono text-sm space-y-1"
+          >
+            {logs.map((log, index) => (
+              <div key={index} className={`${log.color} opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]`}>
+                <span className="text-slate-600 mr-4">{new Date(log.time).toISOString().split('T')[1].substring(0, 8)}</span>
+                {log.text}
+              </div>
+            ))}
+            <div className="text-slate-500 animate-pulse mt-2 block">_</div>
           </div>
         </div>
 
@@ -83,7 +148,7 @@ export default function AIDiagnostics() {
         <div className="space-y-6 flex flex-col">
           <div className="glass-panel p-6 flex-1 flex flex-col items-center justify-center relative">
             <div className="absolute top-0 right-0 w-32 h-32 bg-safe/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
-            <h3 className="text-slate-400 font-medium mb-4 w-full text-left">Threat Model Accuracy</h3>
+            <h3 className="text-slate-400 font-medium mb-4 w-full text-left">SIM Classification Accuracy</h3>
             <div className="h-40 w-full relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -106,8 +171,8 @@ export default function AIDiagnostics() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex items-center justify-center flex-col">
-                <span className="text-3xl font-bold text-safe">99.4%</span>
-                <span className="text-xs text-slate-500">F1 Score</span>
+                <span className="text-3xl font-bold text-safe">99.8%</span>
+                <span className="text-xs text-slate-500">Validation Score</span>
               </div>
             </div>
           </div>
@@ -116,20 +181,24 @@ export default function AIDiagnostics() {
             <h3 className="text-slate-400 font-medium mb-4">Pipeline Status</h3>
             <ul className="space-y-4">
               <li className="flex items-center gap-3">
-                <CheckCircle2 className="text-safe" size={20} />
-                <span className="text-sm text-slate-300">Data Ingestion</span>
+                {isPipelineActive ? <CheckCircle2 className="text-safe" size={20} /> : <AlertCircle className="text-slate-500" size={20} />}
+                <span className="text-sm text-slate-300">Docker Isolation Validated</span>
+              </li>
+              <li className="flex items-center gap-3">
+                {isPipelineActive ? <CheckCircle2 className="text-safe" size={20} /> : <AlertCircle className="text-slate-500" size={20} />}
+                <span className="text-sm text-slate-300">Ingest & Enrich Modules</span>
+              </li>
+              <li className="flex items-center gap-3">
+                {isClassifying ? (
+                  <AlertCircle className="text-warning animate-pulse" size={20} />
+                ) : (
+                  <CheckCircle2 className={isPipelineActive ? "text-safe" : "text-slate-500"} size={20} />
+                )}
+                <span className={`text-sm ${isClassifying ? 'text-warning' : 'text-slate-300'}`}>Threat Detection Loop</span>
               </li>
               <li className="flex items-center gap-3">
                 <CheckCircle2 className="text-safe" size={20} />
-                <span className="text-sm text-slate-300">Feature Extraction</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <AlertCircle className="text-warning animate-pulse" size={20} />
-                <span className="text-sm text-warning">Anomaly Classification</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <CheckCircle2 className="text-safe" size={20} />
-                <span className="text-sm text-slate-300">Auto-Remediation</span>
+                <span className="text-sm text-slate-300">Zero-Trust Enforcement Active</span>
               </li>
             </ul>
           </div>

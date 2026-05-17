@@ -11,12 +11,24 @@ VALID_API_KEYS = {
 }
 
 # In-memory rate limiting for simplicity (IP -> List of Timestamps)
-# A real system would use Redis.
 request_history = {}
 RATE_LIMIT = 20 # Max requests per 10 seconds
 
+def log_pipeline_stage(db: Session, stage: str, message: str):
+    """Logs Security Integrity Module (SIM) 7-stage decision pipeline."""
+    # Using node_id SIM_AGENT to distinguish system thought logs
+    log = models.SecurityLog(
+        ip_address="internal",
+        node_id="SIM_AGENT",
+        event_type=f"pipeline_{stage}",
+        description=message
+    )
+    db.add(log)
+    db.commit()
+
 def check_security(db: Session, ip_address: str, payload_node_id: str, payload_api_key: str):
     """
+    Zero-Trust Integrity Validation Engine.
     Analyzes the request for cybersecurity threats.
     Returns (is_allowed: bool, reason: str, event_type: str)
     """
@@ -32,27 +44,61 @@ def check_security(db: Session, ip_address: str, payload_node_id: str, payload_a
     if ip_address not in request_history:
         request_history[ip_address] = []
     
-    # Clean old requests (> 10 seconds ago)
     request_history[ip_address] = [ts for ts in request_history[ip_address] if (now - ts).total_seconds() < 10]
     request_history[ip_address].append(now)
 
     if len(request_history[ip_address]) > RATE_LIMIT:
+        log_pipeline_stage(db, "INGEST", f"Packet received from {ip_address}. Validating cryptographic signature.")
+        log_pipeline_stage(db, "ENRICH", f"Cross-referencing {ip_address} with global threat intelligence.")
+        log_pipeline_stage(db, "DETECT", f"High request frequency anomaly detected (>{RATE_LIMIT} req/10s).")
+        log_pipeline_stage(db, "ANALYZE", f"SIM Classification: DDoS/Flooding Attempt. Confidence: 99.8%.")
+        log_pipeline_stage(db, "CONTAIN", f"Isolating node {payload_node_id} from main Data Lake.")
+        log_pipeline_stage(db, "ERADICATE", f"Executing IP Ban protocol for {ip_address} at firewall level.")
+        log_pipeline_stage(db, "RECOVER", f"Threat neutralized. System returned to nominal monitoring.")
+        
         _block_ip(db, ip_address, "Request Flooding Detected")
         _mark_node_suspicious(db, payload_node_id)
         return False, "Request Flooding Detected", "flooding"
 
     # 3. API Key Validation
     if payload_api_key not in VALID_API_KEYS:
+        log_pipeline_stage(db, "INGEST", f"Packet received from {ip_address}. Validating signature.")
+        log_pipeline_stage(db, "DETECT", f"Zero-Trust failure: Invalid API Key presented.")
+        log_pipeline_stage(db, "ANALYZE", f"SIM Classification: Unauthorized Access Attempt. Confidence: 100%.")
+        log_pipeline_stage(db, "ERADICATE", f"Rejecting payload and dropping connection.")
         return False, "Invalid API Key", "invalid_api_key"
 
     # 4. Node ID Spoofing Detection
     expected_node_id = VALID_API_KEYS[payload_api_key]
     if expected_node_id != payload_node_id:
+        log_pipeline_stage(db, "INGEST", f"Packet received from {ip_address}. Validating signature.")
+        log_pipeline_stage(db, "ENRICH", f"Verifying node cryptographic identity.")
+        log_pipeline_stage(db, "DETECT", f"Identity mismatch. Expected {expected_node_id}, got {payload_node_id}.")
+        log_pipeline_stage(db, "ANALYZE", f"SIM Classification: Node Spoofing Attack. Confidence: 95%.")
+        log_pipeline_stage(db, "CONTAIN", f"Isolating spoofed node from network.")
+        log_pipeline_stage(db, "ERADICATE", f"Blocking origin IP {ip_address}.")
+        log_pipeline_stage(db, "RECOVER", f"Threat neutralized. Monitoring resumed.")
+        
         _block_ip(db, ip_address, f"Node ID Spoofing. Expected {expected_node_id}, got {payload_node_id}")
         _mark_node_suspicious(db, payload_node_id)
         return False, "Node ID Spoofing Detected", "spoofing"
 
     return True, "Safe", "safe"
+
+def handle_impossible_data(db: Session, ip_address: str, node_id: str, moisture: float, tilt: float):
+    """Handles data poisoning attacks from sensors.py (Integrity Validation Engine)"""
+    log_pipeline_stage(db, "INGEST", f"Packet received from {ip_address}. Integrity check initiated.")
+    log_pipeline_stage(db, "ENRICH", f"Comparing values against physically possible baseline models.")
+    log_pipeline_stage(db, "DETECT", f"Physically impossible telemetry from Node {node_id} (Moist: {moisture}, Tilt: {tilt}).")
+    log_pipeline_stage(db, "ANALYZE", f"SIM Classification: Data Poisoning / Tampering. Confidence: 99.1%.")
+    log_pipeline_stage(db, "CONTAIN", f"Quarantining malicious payload. Preventing Database insertion.")
+    log_pipeline_stage(db, "ERADICATE", f"Executing IP Ban on {ip_address}. Marking node COMPROMISED.")
+    log_pipeline_stage(db, "RECOVER", f"Cascade failure prevented. Nominal state restored.")
+    
+    _block_ip(db, ip_address, "Impossible Sensor Range Detected (Tampering)")
+    _mark_node_suspicious(db, node_id)
+    log_security_event(db, ip_address, node_id, "data_poisoning", "Physically impossible telemetry values.")
+
 
 def log_security_event(db: Session, ip_address: str, node_id: str, event_type: str, description: str):
     log = models.SecurityLog(

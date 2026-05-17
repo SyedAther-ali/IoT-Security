@@ -1,21 +1,60 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Network, Server, Wifi, WifiOff, AlertTriangle, Search } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 
-export default function NodeNetwork() {
-  const [nodes] = useState([
-    { id: 'Node-Alpha', region: 'Sector 7G', status: 'Active', latency: 12, bandwidth: 450, uptime: '99.9%' },
-    { id: 'Node-Beta', region: 'Sector 7G', status: 'Active', latency: 15, bandwidth: 420, uptime: '99.8%' },
-    { id: 'Node-Gamma', region: 'Sector 4B', status: 'Compromised', latency: 890, bandwidth: 12, uptime: '94.2%' },
-    { id: 'Node-Delta', region: 'Sector 4B', status: 'Active', latency: 18, bandwidth: 390, uptime: '99.9%' },
-    { id: 'Node-Epsilon', region: 'Sector 2A', status: 'Offline', latency: 0, bandwidth: 0, uptime: '82.1%' },
-    { id: 'Node-Zeta', region: 'Sector 2A', status: 'Active', latency: 11, bandwidth: 510, uptime: '100%' },
-  ]);
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-  const mockBandwidthData = Array.from({ length: 20 }, (_, i) => ({
-    time: i,
-    val: 400 + Math.random() * 100
-  }));
+export default function NodeNetwork() {
+  const [nodes, setNodes] = useState([]);
+  const [bandwidthData, setBandwidthData] = useState([]);
+  const [stats, setStats] = useState({ total: 0, online: 0, compromised: 0, offline: 0 });
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    // Initialize bandwidth data
+    setBandwidthData(Array.from({ length: 20 }, (_, i) => ({ time: i, val: 0 })));
+
+    const fetchData = async () => {
+      try {
+        const [nodesRes, dashRes] = await Promise.all([
+          axios.get(`${API_URL}/nodes`),
+          axios.get(`${API_URL}/dashboard-data`)
+        ]);
+
+        if (nodesRes.data) {
+          const liveNodes = nodesRes.data;
+          setNodes(liveNodes);
+          
+          let online = 0, comp = 0, off = 0;
+          liveNodes.forEach(n => {
+            if (n.status === 'Active') online++;
+            else if (n.status === 'Compromised') comp++;
+            else if (n.status === 'Offline') off++;
+          });
+          setStats({ total: liveNodes.length, online, compromised: comp, offline: off });
+        }
+
+        if (dashRes.data && dashRes.data.recent_telemetry) {
+          // Estimate bandwidth by telemetry volume
+          const reqPerSec = dashRes.data.recent_telemetry.length;
+          const kbps = reqPerSec * 2.5; // Roughly 2.5kb per request
+          setBandwidthData(prev => {
+            const next = [...prev.slice(1), { time: prev[prev.length - 1].time + 1, val: kbps }];
+            return next;
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching network data", error);
+      }
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const filteredNodes = nodes.filter(n => n.node_id.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div className="p-8 space-y-6 h-full flex flex-col">
@@ -32,6 +71,8 @@ export default function NodeNetwork() {
           <input 
             type="text" 
             placeholder="Search nodes..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="bg-slate-900 border border-slate-700 text-sm rounded-lg pl-10 pr-4 py-2 text-white focus:outline-none focus:border-blue-500 w-64"
           />
         </div>
@@ -44,7 +85,7 @@ export default function NodeNetwork() {
             <Server className="text-blue-400" size={24} />
           </div>
           <div>
-            <div className="text-2xl font-bold text-white">1,204</div>
+            <div className="text-2xl font-bold text-white">{stats.total}</div>
             <div className="text-xs text-slate-500 uppercase tracking-wider">Total Nodes</div>
           </div>
         </div>
@@ -53,7 +94,7 @@ export default function NodeNetwork() {
             <Wifi className="text-safe" size={24} />
           </div>
           <div>
-            <div className="text-2xl font-bold text-white">1,198</div>
+            <div className="text-2xl font-bold text-white">{stats.online}</div>
             <div className="text-xs text-slate-500 uppercase tracking-wider">Online</div>
           </div>
         </div>
@@ -62,7 +103,7 @@ export default function NodeNetwork() {
             <AlertTriangle className="text-warning" size={24} />
           </div>
           <div>
-            <div className="text-2xl font-bold text-white">2</div>
+            <div className="text-2xl font-bold text-white">{stats.compromised}</div>
             <div className="text-xs text-slate-500 uppercase tracking-wider">Compromised</div>
           </div>
         </div>
@@ -71,7 +112,7 @@ export default function NodeNetwork() {
             <WifiOff className="text-slate-500" size={24} />
           </div>
           <div>
-            <div className="text-2xl font-bold text-white">4</div>
+            <div className="text-2xl font-bold text-white">{stats.offline}</div>
             <div className="text-xs text-slate-500 uppercase tracking-wider">Offline</div>
           </div>
         </div>
@@ -81,49 +122,53 @@ export default function NodeNetwork() {
         {/* Node Grid */}
         <div className="lg:col-span-2 glass-panel p-6 overflow-y-auto max-h-[500px]">
           <h3 className="text-lg font-semibold text-white mb-4">Active Deployments</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {nodes.map(node => (
-              <div 
-                key={node.id} 
-                className={`p-4 rounded-xl border transition-all duration-300 hover:scale-[1.02] cursor-pointer ${
-                  node.status === 'Active' ? 'bg-slate-900/50 border-slate-700 hover:border-blue-500' :
-                  node.status === 'Compromised' ? 'bg-danger/10 border-danger/50 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]' :
-                  'bg-slate-900/30 border-slate-800 opacity-70'
-                }`}
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-2">
-                    {node.status === 'Active' ? <Wifi size={16} className="text-safe" /> :
-                     node.status === 'Compromised' ? <AlertTriangle size={16} className="text-danger" /> :
-                     <WifiOff size={16} className="text-slate-500" />}
-                    <span className="font-semibold text-slate-200">{node.id}</span>
+          {filteredNodes.length === 0 ? (
+            <div className="text-center text-slate-500 py-8">No nodes found. Start the pi_node.py simulator.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredNodes.map(node => (
+                <div 
+                  key={node.node_id} 
+                  className={`p-4 rounded-xl border transition-all duration-300 hover:scale-[1.02] cursor-pointer ${
+                    node.status === 'Active' ? 'bg-slate-900/50 border-slate-700 hover:border-blue-500' :
+                    node.status === 'Compromised' ? 'bg-danger/10 border-danger/50 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]' :
+                    'bg-slate-900/30 border-slate-800 opacity-70'
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-2">
+                      {node.status === 'Active' ? <Wifi size={16} className="text-safe" /> :
+                      node.status === 'Compromised' ? <AlertTriangle size={16} className="text-danger" /> :
+                      <WifiOff size={16} className="text-slate-500" />}
+                      <span className="font-semibold text-slate-200">{node.node_id}</span>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      node.status === 'Active' ? 'bg-safe/20 text-safe' :
+                      node.status === 'Compromised' ? 'bg-danger/20 text-danger' :
+                      'bg-slate-800 text-slate-400'
+                    }`}>{node.status}</span>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    node.status === 'Active' ? 'bg-safe/20 text-safe' :
-                    node.status === 'Compromised' ? 'bg-danger/20 text-danger' :
-                    'bg-slate-800 text-slate-400'
-                  }`}>{node.status}</span>
+                  
+                  <div className="text-xs text-slate-500 mb-4">Last seen: {new Date(node.last_seen).toLocaleTimeString()}</div>
+                  
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div className="bg-darker rounded py-1 border border-slate-800/50">
+                      <div className="text-slate-400 mb-1">Ping</div>
+                      <div className={node.status === 'Offline' ? 'text-slate-500' : 'text-slate-200 font-mono'}>{node.status === 'Offline' ? '-' : '12ms'}</div>
+                    </div>
+                    <div className="bg-darker rounded py-1 border border-slate-800/50">
+                      <div className="text-slate-400 mb-1">Status</div>
+                      <div className="text-slate-200 font-mono truncate">{node.status}</div>
+                    </div>
+                    <div className="bg-darker rounded py-1 border border-slate-800/50">
+                      <div className="text-slate-400 mb-1">Uptime</div>
+                      <div className="text-safe font-mono">{node.status === 'Offline' ? '0%' : '99.9%'}</div>
+                    </div>
+                  </div>
                 </div>
-                
-                <div className="text-xs text-slate-500 mb-4">{node.region}</div>
-                
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="bg-darker rounded py-1 border border-slate-800/50">
-                    <div className="text-slate-400 mb-1">Ping</div>
-                    <div className={node.latency > 100 ? 'text-warning font-mono' : 'text-slate-200 font-mono'}>{node.latency}ms</div>
-                  </div>
-                  <div className="bg-darker rounded py-1 border border-slate-800/50">
-                    <div className="text-slate-400 mb-1">Tx/Rx</div>
-                    <div className="text-slate-200 font-mono">{node.bandwidth} <span className="text-[10px]">kbps</span></div>
-                  </div>
-                  <div className="bg-darker rounded py-1 border border-slate-800/50">
-                    <div className="text-slate-400 mb-1">Uptime</div>
-                    <div className="text-safe font-mono">{node.uptime}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Global Bandwidth Chart */}
@@ -131,7 +176,7 @@ export default function NodeNetwork() {
           <h3 className="text-lg font-semibold text-white mb-4">Network Throughput</h3>
           <div className="flex-1 min-h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={mockBandwidthData}>
+              <AreaChart data={bandwidthData}>
                 <defs>
                   <linearGradient id="colorBw" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.5}/>
@@ -144,7 +189,7 @@ export default function NodeNetwork() {
           </div>
           <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-center text-sm">
             <span className="text-slate-500">Current Load</span>
-            <span className="text-blue-400 font-mono font-bold">4.2 GB/s</span>
+            <span className="text-blue-400 font-mono font-bold">{bandwidthData.length > 0 ? bandwidthData[bandwidthData.length - 1].val.toFixed(1) : 0} kbps</span>
           </div>
         </div>
       </div>

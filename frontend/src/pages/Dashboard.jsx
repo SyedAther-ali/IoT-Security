@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { AlertTriangle, ShieldCheck, ShieldAlert, Activity, Wifi, ShieldX, ServerCrash } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 // Use env variable or fallback to local backend for testing
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
@@ -12,6 +13,8 @@ export default function Dashboard() {
     recent_telemetry: [],
     recent_logs: []
   });
+  
+  const seenLogIds = useRef(new Set());
 
   // Polling every 2 seconds as requested
   useEffect(() => {
@@ -21,6 +24,27 @@ export default function Dashboard() {
         // Only set data if it has the expected shape
         if (response.data && response.data.recent_telemetry) {
           setData(response.data);
+          
+          // Trigger global toasts for new SIM Pipeline stages
+          if (response.data.recent_logs) {
+            response.data.recent_logs.reverse().forEach(log => {
+              const logId = `dash-${log.timestamp}-${log.id || log.ip_address}`;
+              if (!seenLogIds.current.has(logId)) {
+                seenLogIds.current.add(logId);
+                
+                if (log.event_type.startsWith('pipeline_')) {
+                  const stage = log.event_type.replace('pipeline_', '');
+                  if (stage === 'DETECT' || stage === 'ANALYZE') {
+                    toast.error(`[SIM ${stage}] ${log.description}`, { icon: '⚠️', duration: 4000 });
+                  } else if (stage === 'CONTAIN' || stage === 'ERADICATE') {
+                    toast.error(`[SIM ${stage}] ${log.description}`, { icon: '🛑', duration: 5000, style: { border: '1px solid #ef4444' } });
+                  } else if (stage === 'RECOVER') {
+                    toast.success(`[SIM ${stage}] ${log.description}`, { icon: '✅', duration: 4000 });
+                  }
+                }
+              }
+            });
+          }
         }
       } catch (error) {
         console.error("Error fetching dashboard data", error);
@@ -35,7 +59,7 @@ export default function Dashboard() {
   // Safe fallbacks in case data gets corrupted
   const recentTelemetry = data.recent_telemetry || [];
   const recentLogs = data.recent_logs || [];
-  const stats = data.stats || { total_nodes: 0, suspicious_nodes: 0, blocked_ips: 0 };
+  const stats = data.stats || { total_nodes: 0, suspicious_nodes: 0, blocked_ips: 0, online_nodes: 0 };
 
   // Format chart data (reverse so newest is on the right)
   const chartData = [...recentTelemetry].reverse().map(t => ({
@@ -87,20 +111,36 @@ export default function Dashboard() {
       </header>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
         <div className="glass-panel p-6 flex flex-col justify-between relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10 transition-transform group-hover:scale-150"></div>
           <div className="flex justify-between items-start mb-4">
-            <h3 className="text-slate-400 font-medium">Active Nodes</h3>
+            <h3 className="text-slate-400 font-medium">Online Nodes</h3>
             <Wifi className="text-blue-400" size={20} />
           </div>
-          <span className="text-4xl font-bold text-white">{stats.total_nodes}</span>
+          <span className="text-4xl font-bold text-white">{stats.online_nodes}<span className="text-xl text-slate-500">/{stats.total_nodes}</span></span>
+        </div>
+
+        <div className="glass-panel p-6 flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl -mr-10 -mt-10 transition-transform group-hover:scale-150"></div>
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-slate-400 font-medium">Avg Temp</h3>
+            <Activity className="text-orange-400" size={20} />
+          </div>
+          <div className="flex items-end gap-1">
+            <span className="text-4xl font-bold text-white">
+              {recentTelemetry.length > 0 && recentTelemetry[0].temperature 
+                ? recentTelemetry[0].temperature.toFixed(1) 
+                : "--"}
+            </span>
+            <span className="text-slate-500 mb-1">°C</span>
+          </div>
         </div>
 
         <div className="glass-panel p-6 flex flex-col justify-between relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-safe/10 rounded-full blur-3xl -mr-10 -mt-10 transition-transform group-hover:scale-150"></div>
           <div className="flex justify-between items-start mb-4">
-            <h3 className="text-slate-400 font-medium">Telemetry Rate</h3>
+            <h3 className="text-slate-400 font-medium">Telemetry</h3>
             <Activity className="text-safe" size={20} />
           </div>
           <div className="flex items-end gap-2">
@@ -112,7 +152,7 @@ export default function Dashboard() {
         <div className={`glass-panel p-6 flex flex-col justify-between relative overflow-hidden group ${stats.suspicious_nodes > 0 ? 'border-danger/50 bg-danger/5' : ''}`}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-danger/10 rounded-full blur-3xl -mr-10 -mt-10 transition-transform group-hover:scale-150"></div>
           <div className="flex justify-between items-start mb-4">
-            <h3 className="text-slate-400 font-medium">Compromised Nodes</h3>
+            <h3 className="text-slate-400 font-medium">Compromised</h3>
             <ShieldAlert className={stats.suspicious_nodes > 0 ? "text-danger animate-pulse" : "text-slate-500"} size={20} />
           </div>
           <span className={`text-4xl font-bold ${stats.suspicious_nodes > 0 ? 'text-danger' : 'text-white'}`}>
@@ -183,19 +223,31 @@ export default function Dashboard() {
                 <p className="text-sm">No threats detected</p>
               </div>
             ) : (
-              recentLogs.map((log, idx) => (
-                <div key={idx} className="bg-danger/10 border border-danger/20 rounded p-3 text-sm">
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="text-danger font-bold text-xs uppercase tracking-wider">{log.event_type.replace('_', ' ')}</span>
-                    <span className="text-slate-500 text-xs">{new Date(log.timestamp).toLocaleTimeString()}</span>
+              recentLogs.map((log, idx) => {
+                const isPipeline = log.event_type.startsWith('pipeline_');
+                const stage = isPipeline ? log.event_type.replace('pipeline_', '') : null;
+                
+                return (
+                  <div key={idx} className={`border rounded p-3 text-sm ${isPipeline ? 'bg-slate-900 border-slate-700' : 'bg-danger/10 border-danger/20'}`}>
+                    <div className="flex justify-between items-start mb-1">
+                      <span className={`font-bold text-xs uppercase tracking-wider ${
+                        stage === 'DETECT' ? 'text-warning' :
+                        stage === 'ANALYZE' ? 'text-purple-400' :
+                        stage === 'RESPONSE' ? 'text-blue-400' :
+                        stage === 'ACTION' ? 'text-danger' : 'text-danger'
+                      }`}>
+                        {isPipeline ? `[${stage}] SYS_AGENT_2` : log.event_type.replace('_', ' ')}
+                      </span>
+                      <span className="text-slate-500 text-xs">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    <p className={`${isPipeline ? 'text-slate-300' : 'text-slate-300'} mb-1`}>{log.description}</p>
+                    <div className="flex gap-2 text-xs font-mono mt-2">
+                      <span className="bg-black/50 px-1.5 py-0.5 rounded text-slate-400">IP: {log.ip_address}</span>
+                      {log.node_id && <span className="bg-black/50 px-1.5 py-0.5 rounded text-slate-400">Node: {log.node_id}</span>}
+                    </div>
                   </div>
-                  <p className="text-slate-300 mb-1">{log.description}</p>
-                  <div className="flex gap-2 text-xs font-mono">
-                    <span className="bg-slate-900 px-1.5 py-0.5 rounded text-slate-400">IP: {log.ip_address}</span>
-                    {log.node_id && <span className="bg-slate-900 px-1.5 py-0.5 rounded text-slate-400">Node: {log.node_id}</span>}
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

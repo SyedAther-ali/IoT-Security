@@ -14,6 +14,7 @@ class SensorData(Base):
     id = Column(Integer, primary_key=True, index=True)
     node_id = Column(String, index=True)
     motion = Column(Integer)
+    temperature = Column(Float, nullable=True) # Added for DHT11
     moisture = Column(Float)
     shake = Column(Integer)
     tilt = Column(Float)
@@ -37,3 +38,10 @@ class BlockedIP(Base):
     ip_address = Column(String, unique=True, index=True)
     reason = Column(String)
     blocked_at = Column(DateTime, default=datetime.utcnow)
+
+class SystemSettings(Base):
+    __tablename__ = "system_settings"
+    id = Column(Integer, primary_key=True, index=True)
+    sensitivity = Column(Integer, default=85)
+    auto_ban = Column(Boolean, default=True)
+    deep_inspect = Column(Boolean, default=True)
