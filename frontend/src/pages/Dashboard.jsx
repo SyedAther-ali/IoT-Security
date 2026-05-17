@@ -5,7 +5,7 @@ import { AlertTriangle, ShieldCheck, ShieldAlert, Activity, Wifi, ShieldX, Serve
 import toast from 'react-hot-toast';
 
 // Use env variable or fallback to local backend for testing
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://iot-security-068d.onrender.com';
 
 export default function Dashboard() {
   const [data, setData] = useState({

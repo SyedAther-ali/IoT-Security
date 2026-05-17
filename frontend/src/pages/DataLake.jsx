@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Database, HardDrive, Download, Search, Terminal } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://iot-security-068d.onrender.com';
 
 export default function DataLake() {
   const [query, setQuery] = useState('SELECT * FROM telemetry\nWHERE risk_score > 0.8\nORDER BY timestamp DESC\nLIMIT 10;');

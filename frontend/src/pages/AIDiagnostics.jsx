@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Cpu, Terminal, CheckCircle2, AlertCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://iot-security-068d.onrender.com';
 
 export default function AIDiagnostics() {
   const [logs, setLogs] = useState([]);
