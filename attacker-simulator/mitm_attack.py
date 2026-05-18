@@ -9,8 +9,16 @@ from concurrent.futures import ThreadPoolExecutor
 # ==========================================
 
 BACKEND_URL = "https://iot-security-068d.onrender.com"  # Hitting the live cloud server
-NODE_ID = "pi-node-2" # Pretending to be a valid node
-API_KEY = "secret456" # Using a valid key we theoretically 'stole'
+
+# TARGET SELECTION (Choose whether to target your physical hardware or virtual simulator)
+TARGET_HARDWARE = True  # Set to True to attack your physical Pi, False to simulate virtual pi-node-2
+
+if TARGET_HARDWARE:
+    NODE_ID = "pi-node-1"   # Targets your real physical Raspberry Pi!
+    API_KEY = "secret123"
+else:
+    NODE_ID = "pi-node-2"   # Simulates a virtual node
+    API_KEY = "secret456"
 
 def print_attacker(msg, color="white"):
     colors = {
