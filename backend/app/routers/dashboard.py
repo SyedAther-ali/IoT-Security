@@ -21,10 +21,15 @@ def get_dashboard_data(db: Session = Depends(get_db)):
         db.delete(block)
     
     if expired_blocks:
-        # Also reset any nodes that were stuck in "suspicious" 
-        suspicious = db.query(models.Node).filter(models.Node.status == "suspicious").all()
+        # Also reset any nodes that were stuck in "suspicious" or "isolated"
+        suspicious = db.query(models.Node).filter(models.Node.status.in_(["suspicious", "isolated"])).all()
         for node in suspicious:
             node.status = "trusted"
+            # Auto-publish SAFE MQTT command to reset the physical hardware
+            try:
+                publish.single(f"{TOPIC_COMMAND}/{node.node_id}", "SAFE", hostname=MQTT_BROKER)
+            except Exception as e:
+                print(f"Failed to auto-recover MQTT command for {node.node_id}: {e}")
         db.commit()
     # ------------------------------------
 
@@ -59,6 +64,8 @@ def get_nodes(db: Session = Depends(get_db)):
     for node in nodes:
         if node.status == "suspicious":
             node.status = "Compromised"
+        elif node.status == "isolated":
+            node.status = "Isolated"
         elif node.last_seen < thirty_seconds_ago:
             node.status = "Offline"
         else:
@@ -98,6 +105,28 @@ def isolate_node(node_id: str, db: Session = Depends(get_db)):
     log_security_event(db, "ADMIN_DASHBOARD", node_id, "manual_isolation", "Node manually isolated by admin kill switch.")
     
     return {"message": f"Node {node_id} isolated"}
+
+@router.post("/nodes/{node_id}/recover")
+def recover_node(node_id: str, db: Session = Depends(get_db)):
+    node = db.query(models.Node).filter(models.Node.node_id == node_id).first()
+    if not node:
+        return {"error": "Node not found"}
+        
+    node.status = "trusted"
+    db.commit()
+    
+    # Instantly trigger MQTT response to recover hardware
+    try:
+        publish.single(f"{TOPIC_COMMAND}/{node_id}", "SAFE", hostname=MQTT_BROKER)
+    except Exception as e:
+        print(f"Failed to publish MQTT recover command: {e}")
+        
+    # Log it
+    from app.engines.security_ai import log_security_event, log_pipeline_stage
+    log_pipeline_stage(db, "RECOVER", f"Admin manually recovered node {node_id}")
+    log_security_event(db, "ADMIN_DASHBOARD", node_id, "manual_recovery", "Node manually recovered by admin.")
+    
+    return {"message": f"Node {node_id} recovered"}
 
 @router.get("/threats")
 def get_threats(db: Session = Depends(get_db)):

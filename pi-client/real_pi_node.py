@@ -37,13 +37,30 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(MOISTURE_PIN, GPIO.IN)      
 GPIO.setup(SHAKE_PIN, GPIO.IN)         
 GPIO.setup(PIR_MOTION_PIN, GPIO.IN)  
-GPIO.setup(TAMPER_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP) # Active low (pressed = ground)
+GPIO.setup(TAMPER_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) # Active high touch sensor (high = touched)
 
 # Setup Outputs
 GPIO.setup(LED_GREEN, GPIO.OUT)
 GPIO.setup(LED_BLUE, GPIO.OUT)
 GPIO.setup(LED_WHITE, GPIO.OUT)
 GPIO.setup(BUZZER_PIN, GPIO.OUT)
+
+# Initialize PWM on buzzer pin at 2000Hz (highly audible pitch for passive buzzers)
+buzzer_pwm = GPIO.PWM(BUZZER_PIN, 2000)
+
+def turn_buzzer_on():
+    """Starts the physical siren using PWM for maximum passive volume."""
+    try:
+        buzzer_pwm.start(50) # 50% duty cycle creates maximum volume square wave
+    except Exception:
+        pass
+
+def turn_buzzer_off():
+    """Stops the physical siren."""
+    try:
+        buzzer_pwm.stop()
+    except Exception:
+        pass
 
 # --- I2C LCD1602 RGB DISPLAY SETUP (FAIL-SAFE) ---
 lcd = None
@@ -86,7 +103,7 @@ def set_hardware_alert_status(status):
     GPIO.output(LED_GREEN, GPIO.LOW)
     GPIO.output(LED_BLUE, GPIO.LOW)
     GPIO.output(LED_WHITE, GPIO.LOW)
-    GPIO.output(BUZZER_PIN, GPIO.LOW) 
+    turn_buzzer_off()
     
     if status == "SAFE":
         GPIO.output(LED_GREEN, GPIO.HIGH)
@@ -99,9 +116,9 @@ def set_hardware_alert_status(status):
         GPIO.output(LED_BLUE, GPIO.HIGH)
         if status == "LANDSLIDE RISK":
             # Pulse buzzer for early warning
-            GPIO.output(BUZZER_PIN, GPIO.HIGH)
-            time.sleep(0.1)
-            GPIO.output(BUZZER_PIN, GPIO.LOW)
+            turn_buzzer_on()
+            time.sleep(0.2)
+            turn_buzzer_off()
             update_lcd_screen(
                 "STATUS: CRITICAL",
                 "EVACUATE AREA!",
@@ -115,7 +132,7 @@ def set_hardware_alert_status(status):
             )
     elif status == "DANGER" or status == "BLOCKED":
         GPIO.output(LED_WHITE, GPIO.HIGH)  # Turn on bright White strobe
-        GPIO.output(BUZZER_PIN, GPIO.HIGH) # Turn on Siren
+        turn_buzzer_on()                   # Turn on Siren (LOUD PWM!)
         update_lcd_screen(
             "!!! QUARANTINE !!!",
             "SYSTEM BLOCKED",

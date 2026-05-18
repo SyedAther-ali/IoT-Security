@@ -166,20 +166,34 @@ export default function NodeNetwork() {
                     </div>
                   </div>
                   
-                  {node.status !== 'isolated' && (
+                  {node.status === 'Isolated' || node.status === 'Compromised' ? (
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        if(window.confirm(`Are you sure you want to isolate node ${node.node_id}? This will trigger a physical hardware lockdown.`)) {
-                          axios.post(`${API_URL}/nodes/${node.node_id}/isolate`).then(() => {
-                            alert("Node isolated!");
-                          });
-                        }
+                        axios.post(`${API_URL}/nodes/${node.node_id}/recover`).then(() => {
+                          alert("Node recovered successfully!");
+                        });
                       }}
-                      className="mt-4 w-full py-2 bg-danger/10 hover:bg-danger/30 text-danger border border-danger/30 rounded text-xs font-bold tracking-wider uppercase transition-colors"
+                      className="mt-4 w-full py-2 bg-safe/20 hover:bg-safe/40 text-safe border border-safe/30 rounded text-xs font-bold tracking-wider uppercase transition-colors"
                     >
-                      KILL SWITCH: ISOLATE NODE
+                      RECOVER & RESET NODE
                     </button>
+                  ) : (
+                    node.status !== 'Offline' && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if(window.confirm(`Are you sure you want to isolate node ${node.node_id}? This will trigger a physical hardware lockdown.`)) {
+                            axios.post(`${API_URL}/nodes/${node.node_id}/isolate`).then(() => {
+                              alert("Node isolated!");
+                            });
+                          }
+                        }}
+                        className="mt-4 w-full py-2 bg-danger/10 hover:bg-danger/30 text-danger border border-danger/30 rounded text-xs font-bold tracking-wider uppercase transition-colors"
+                      >
+                        KILL SWITCH: ISOLATE NODE
+                      </button>
+                    )
                   )}
                 </div>
               ))}
