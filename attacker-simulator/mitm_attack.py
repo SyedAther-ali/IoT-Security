@@ -33,6 +33,17 @@ def print_attacker(msg, color="white"):
 def send_payload(payload):
     try:
         response = requests.post(f"{BACKEND_URL}/sensor-data", json=payload, timeout=2)
+        
+        # Check if the backend SOAR Defender Agent has isolated the node
+        if response.status_code == 403 and "ISOLATED" in response.text:
+            print_attacker("\n[⚡] SOAR DEFENDER SHIELD INTRUSION BLOCK TRIPPED!", "red")
+            print_attacker("[⚡] ZERO-TRUST PROTOCOL: ENFORCING HARDWARE PORT BLOCKADE...", "red")
+            print_attacker("[⚡] EXECUTING REMOTE SHELL TERMINATION & DISCONNECT...", "yellow")
+            time.sleep(1.5)
+            print_attacker("\n[✔] ATTACK NEUTRALIZED AND SHUT DOWN BY DEFENDER AGENT!", "green")
+            import sys
+            sys.exit(0) # Automatic self-destruction!
+            
         return response.status_code, response.text
     except Exception as e:
         return 0, str(e)
