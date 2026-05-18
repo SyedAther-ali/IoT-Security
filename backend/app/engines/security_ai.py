@@ -52,7 +52,7 @@ def check_security(db: Session, ip_address: str, payload_node_id: str, payload_a
             log_pipeline_stage(db, "RECOVER", f"Auto-Recovery complete for {ip_address}. Node restored to trusted state.")
             # Let it continue to process the request normally now
         else:
-            return False, f"IP blocked. Reason: {blocked.reason}", "blocked_ip_access"
+            return False, f"IP blocked. Node ISOLATED. Reason: {blocked.reason}", "blocked_ip_access"
 
     # 2. Rate Limiting (Flooding Detection)
     if ip_address not in request_history:
@@ -160,5 +160,6 @@ def _block_ip(db: Session, ip_address: str, reason: str):
 def _mark_node_suspicious(db: Session, node_id: str):
     node = db.query(models.Node).filter(models.Node.node_id == node_id).first()
     if node:
-        node.status = "suspicious"
+        node.status = "isolated"  # Autonomous SOAR Containment: Instant lockdown!
         db.commit()
+        log_pipeline_stage(db, "CONTAIN", f"Autonomous Agent executed Kill Switch for {node_id}. Integrity breach contained.")

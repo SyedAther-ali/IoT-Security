@@ -16,18 +16,24 @@ export default function Dashboard() {
   
   const seenLogIds = useRef(new Set());
 
+  const [nodes, setNodes] = useState([]);
+
   // Polling every 2 seconds as requested
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`${API_URL}/dashboard-data`);
+        const [dashRes, nodesRes] = await Promise.all([
+          axios.get(`${API_URL}/dashboard-data`),
+          axios.get(`${API_URL}/nodes`)
+        ]);
+        
         // Only set data if it has the expected shape
-        if (response.data && response.data.recent_telemetry) {
-          setData(response.data);
+        if (dashRes.data && dashRes.data.recent_telemetry) {
+          setData(dashRes.data);
           
           // Trigger global toasts for new SIM Pipeline stages (clutter-free)
-          if (response.data.recent_logs) {
-            response.data.recent_logs.reverse().forEach(log => {
+          if (dashRes.data.recent_logs) {
+            dashRes.data.recent_logs.reverse().forEach(log => {
               const logId = `dash-${log.timestamp}-${log.id || log.ip_address}`;
               if (!seenLogIds.current.has(logId)) {
                 seenLogIds.current.add(logId);
@@ -44,6 +50,10 @@ export default function Dashboard() {
             });
           }
         }
+
+        if (nodesRes.data) {
+          setNodes(nodesRes.data);
+        }
       } catch (error) {
         console.error("Error fetching dashboard data", error);
       }
@@ -58,6 +68,7 @@ export default function Dashboard() {
   const recentTelemetry = data.recent_telemetry || [];
   const recentLogs = data.recent_logs || [];
   const stats = data.stats || { total_nodes: 0, suspicious_nodes: 0, blocked_ips: 0, online_nodes: 0 };
+  const compromisedNodes = nodes.filter(n => n.status === 'Compromised' || n.status === 'Isolated');
 
   // Format chart data (reverse so newest is on the right)
   const chartData = [...recentTelemetry].reverse().map(t => ({
@@ -107,6 +118,24 @@ export default function Dashboard() {
           <StatusIcon size={32} className={statusColor} />
         </div>
       </header>
+
+      {/* Active Security Threat Banner */}
+      {compromisedNodes.length > 0 && (
+        <div className="bg-danger/10 border border-danger/30 rounded-xl p-4 flex items-center justify-between animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.15)]">
+          <div className="flex items-center gap-3">
+            <ShieldAlert className="text-danger" size={24} />
+            <div>
+              <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                ACTIVE CYBER INTRUSION DETECTED
+              </h4>
+              <p className="text-xs text-slate-300 mt-1">
+                Zero-Trust Isolation in progress. Compromised hardware: <span className="font-mono text-danger font-bold uppercase">{compromisedNodes.map(n => n.node_id).join(', ')}</span>
+              </p>
+            </div>
+          </div>
+          <span className="bg-danger/20 text-danger text-xs px-2.5 py-1 rounded font-bold uppercase tracking-wider">SOAR AUTONOMOUS LOCKDOWN</span>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
@@ -269,9 +298,15 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {recentTelemetry.slice(0, 8).map((t, idx) => (
-                <tr key={idx} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                <tr key={idx} className={`border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors ${
+                  t.tampered ? 'bg-danger/10 hover:bg-danger/20 border-l-2 border-l-danger animate-pulse' : ''
+                }`}>
                   <td className="px-4 py-3 font-mono text-xs">{new Date(t.timestamp).toLocaleTimeString()}</td>
-                  <td className="px-4 py-3 font-medium text-white">{t.node_id}</td>
+                  <td className="px-4 py-3 font-medium text-white flex items-center gap-2">
+                    {t.tampered && <AlertTriangle size={14} className="text-danger animate-bounce" />}
+                    <span>{t.node_id}</span>
+                    {t.tampered && <span className="bg-danger/20 text-danger border border-danger/30 text-[9px] px-1.5 py-0.5 rounded font-black uppercase">TAMPERED</span>}
+                  </td>
                   <td className="px-4 py-3">{t.moisture}%</td>
                   <td className="px-4 py-3">{t.shake}</td>
                   <td className="px-4 py-3">{t.motion === 1 ? 'DETECTED' : 'None'}</td>
