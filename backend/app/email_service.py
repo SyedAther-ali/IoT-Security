@@ -13,7 +13,7 @@ RECIPIENT_EMAIL = os.getenv("GAIA_RECIPIENT_EMAIL", SENDER_EMAIL)
 
 def _send_email_async(subject: str, body: str):
     if not SENDER_EMAIL or not APP_PASSWORD:
-        print(f"\n[EMAIL SIMULATION] Would have sent email:\nSUBJECT: {subject}\nBODY:\n{body}\n")
+        print(f"\n[EMAIL SIMULATION] Would have sent email:\nSUBJECT: {subject}\nBODY:\n{body}\n", flush=True)
         return
         
     try:
@@ -30,9 +30,9 @@ def _send_email_async(subject: str, body: str):
         text = msg.as_string()
         server.sendmail(SENDER_EMAIL, RECIPIENT_EMAIL, text)
         server.quit()
-        print(f"[SYS] Security Alert Email successfully sent to {RECIPIENT_EMAIL}")
+        print(f"[SYS] Security Alert Email successfully sent to {RECIPIENT_EMAIL}", flush=True)
     except Exception as e:
-        print(f"[SYS] Failed to send email alert: {e}")
+        print(f"[SYS] Failed to send email alert: {e}", flush=True)
 
 def send_security_alert(node_id: str, ip_address: str, event_type: str, reason: str):
     """Fires an asynchronous email alert for a security incident."""
@@ -60,5 +60,7 @@ def send_security_alert(node_id: str, ip_address: str, event_type: str, reason: 
     - GAIA Security Operations Center
     """
     
-    # Run in background to prevent blocking the API
-    threading.Thread(target=_send_email_async, args=(subject, body), daemon=True).start()
+    # Run synchronously for debugging
+    import sys
+    print(f"[SYS] Attempting to send email to {SENDER_EMAIL}...", flush=True)
+    _send_email_async(subject, body)

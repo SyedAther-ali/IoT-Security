@@ -12,13 +12,28 @@ def get_dashboard_data(db: Session = Depends(get_db)):
     # Get latest 50 sensor readings
     recent_data = db.query(models.SensorData).order_by(models.SensorData.timestamp.desc()).limit(50).all()
     
+    thirty_seconds_ago = datetime.utcnow() - timedelta(seconds=30)
+    
+    # --- ACTIVE AUTO-RECOVERY TRIGGER ---
+    # Clear any blocked IPs that are older than 30 seconds
+    expired_blocks = db.query(models.BlockedIP).filter(models.BlockedIP.blocked_at < thirty_seconds_ago).all()
+    for block in expired_blocks:
+        db.delete(block)
+    
+    if expired_blocks:
+        # Also reset any nodes that were stuck in "suspicious" 
+        suspicious = db.query(models.Node).filter(models.Node.status == "suspicious").all()
+        for node in suspicious:
+            node.status = "trusted"
+        db.commit()
+    # ------------------------------------
+
     # Get stats
     total_nodes = db.query(models.Node).count()
     suspicious_nodes = db.query(models.Node).filter(models.Node.status == "suspicious").count()
     blocked_ips = db.query(models.BlockedIP).count()
     
     # Calculate online nodes (seen in last 30 seconds)
-    thirty_seconds_ago = datetime.utcnow() - timedelta(seconds=30)
     online_nodes = db.query(models.Node).filter(models.Node.last_seen >= thirty_seconds_ago).count()
     
     # Latest logs
