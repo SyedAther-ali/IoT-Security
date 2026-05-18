@@ -51,14 +51,14 @@ export default function ThreatIntelligence() {
     });
   };
 
-  // Find active threats from logs
-  const activeBlockLog = recentThreats.find(t => t.ip_address && t.ip_address !== "internal" && !t.ip_address.includes("ADMIN"));
-  const attackerIp = activeBlockLog ? activeBlockLog.ip_address : "103.167.127.66";
-  const isCurrentlyAttacked = nodes.some(n => n.status === 'Compromised' || n.status === 'Isolated');
-  
   // Find which specific node status is Isolated or Compromised
   const isolatedNode = nodes.find(n => n.status === 'Compromised' || n.status === 'Isolated');
-  const isolatedNodeId = isolatedNode ? isolatedNode.node_id : "pi-node-1";
+  const isCurrentlyAttacked = !!isolatedNode;
+  const isolatedNodeId = isolatedNode ? isolatedNode.node_id : null;
+
+  // Dynamically find the exact IP that targeted this specific isolated node!
+  const relevantLog = recentThreats.find(t => t.node_id === isolatedNodeId && t.ip_address && t.ip_address !== "internal" && !t.ip_address.includes("ADMIN"));
+  const attackerIp = relevantLog ? relevantLog.ip_address : "UNKNOWN SOURCE";
 
   return (
     <div className="p-8 space-y-6 h-full flex flex-col">
@@ -144,14 +144,20 @@ export default function ThreatIntelligence() {
 
                 {/* 1. Attacker Node (Left) */}
                 <g transform="translate(100, 125)">
-                  {isCurrentlyAttacked && (
-                    <circle r="25" fill="#ef4444" opacity="0.15" className="shield-pulse-active" />
-                  )}
-                  <rect x="-45" y="-30" width="90" height="60" rx="6" fill="#020617" stroke={isCurrentlyAttacked ? "#ef4444" : "#475569"} strokeWidth="2" filter={isCurrentlyAttacked ? "url(#glow-red)" : ""} />
-                  <text y="-8" fill={isCurrentlyAttacked ? "#ef4444" : "#94a3b8"} fontSize="9" textAnchor="middle" fontWeight="bold" fontFamily="monospace">MALICIOUS IP</text>
-                  <text y="10" fill="#f8fafc" fontSize="8" textAnchor="middle" fontFamily="monospace">{attackerIp}</text>
-                  {isCurrentlyAttacked && (
-                    <circle cx="0" cy="-20" r="3" fill="#ef4444" className="animate-ping" />
+                  {isCurrentlyAttacked ? (
+                    <>
+                      <circle r="25" fill="#ef4444" opacity="0.15" className="shield-pulse-active" />
+                      <rect x="-45" y="-30" width="90" height="60" rx="6" fill="#020617" stroke="#ef4444" strokeWidth="2" filter="url(#glow-red)" />
+                      <text y="-8" fill="#ef4444" fontSize="9" textAnchor="middle" fontWeight="bold" fontFamily="monospace">MALICIOUS IP</text>
+                      <text y="10" fill="#f8fafc" fontSize="8" textAnchor="middle" fontFamily="monospace">{attackerIp}</text>
+                      <circle cx="0" cy="-20" r="3" fill="#ef4444" className="animate-ping" />
+                    </>
+                  ) : (
+                    <>
+                      <rect x="-45" y="-30" width="90" height="60" rx="6" fill="#020617" stroke="#334155" strokeWidth="1.5" />
+                      <text y="-6" fill="#64748b" fontSize="9" textAnchor="middle" fontWeight="bold" fontFamily="monospace">THREAT ORIGIN</text>
+                      <text y="10" fill="#22c55e" fontSize="8" textAnchor="middle" fontWeight="bold" fontFamily="monospace">CLEAN</text>
+                    </>
                   )}
                 </g>
 
