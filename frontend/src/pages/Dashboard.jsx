@@ -9,7 +9,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://iot-security-068d.onren
 
 export default function Dashboard() {
   const [data, setData] = useState({
-    stats: { total_nodes: 0, suspicious_nodes: 0, blocked_ips: 0 },
+    stats: { total_nodes: 0, suspicious_nodes: 0, blocked_ips: 0, online_nodes: 0 },
     recent_telemetry: [],
     recent_logs: []
   });

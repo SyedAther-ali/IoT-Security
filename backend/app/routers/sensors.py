@@ -7,6 +7,16 @@ from datetime import datetime
 
 router = APIRouter()
 
+def publish_mqtt_command_async(topic: str, payload: str):
+    import threading
+    from paho.mqtt import publish
+    def _run():
+        try:
+            publish.single(topic, payload, hostname="broker.hivemq.com")
+        except Exception as e:
+            print(f"[MQTT ASYNC ERR] Failed to publish {payload} to {topic}: {e}")
+    threading.Thread(target=_run, daemon=True).start()
+
 @router.post("/sensor-data", response_model=schemas.SensorDataResponse)
 async def receive_sensor_data(data: schemas.SensorDataCreate, request: Request, db: Session = Depends(get_db)):
     # 1. Cybersecurity Check
@@ -27,31 +37,19 @@ async def receive_sensor_data(data: schemas.SensorDataCreate, request: Request, 
     if not is_allowed:
         if event_type not in ["blocked_ip_access", "isolated_node"]:
             security_ai.log_security_event(db, client_ip, data.node_id, event_type, reason)
-        try:
-            from paho.mqtt import publish
-            publish.single(f"gaia/syedather/command/{data.node_id}", "BLOCKED", hostname="broker.hivemq.com")
-        except Exception:
-            pass
+        publish_mqtt_command_async(f"gaia/syedather/command/{data.node_id}", "BLOCKED")
         raise HTTPException(status_code=403, detail="Access Denied: " + reason)
 
     # Validate physical impossibility (Impossible Ranges Attack)
     if data.moisture < 0 or data.moisture > 100 or data.tilt < -180 or data.tilt > 180:
         security_ai.handle_impossible_data(db, client_ip, data.node_id, data.moisture, data.tilt)
-        try:
-            from paho.mqtt import publish
-            publish.single(f"gaia/syedather/command/{data.node_id}", "BLOCKED", hostname="broker.hivemq.com")
-        except Exception:
-            pass
+        publish_mqtt_command_async(f"gaia/syedather/command/{data.node_id}", "BLOCKED")
         raise HTTPException(status_code=400, detail="Invalid Sensor Data Range")
 
     # Validate physical hardware tampering
     if data.tampered:
         security_ai.handle_tampering(db, client_ip, data.node_id)
-        try:
-            from paho.mqtt import publish
-            publish.single(f"gaia/syedather/command/{data.node_id}", "BLOCKED", hostname="broker.hivemq.com")
-        except Exception:
-            pass
+        publish_mqtt_command_async(f"gaia/syedather/command/{data.node_id}", "BLOCKED")
         raise HTTPException(status_code=403, detail="HARDWARE TAMPERING DETECTED")
 
     # 2. Landslide AI Analysis (Now using Scikit-Learn ML)
@@ -89,11 +87,7 @@ async def receive_sensor_data(data: schemas.SensorDataCreate, request: Request, 
     db.refresh(sensor_entry)
 
     # Publish Instant Status Back to Node over MQTT
-    try:
-        from paho.mqtt import publish
-        response_status = "BLOCKED" if node.status in ["suspicious", "isolated"] else severity
-        publish.single(f"gaia/syedather/command/{data.node_id}", response_status, hostname="broker.hivemq.com")
-    except Exception:
-        pass
+    response_status = "BLOCKED" if node.status in ["suspicious", "isolated"] else severity
+    publish_mqtt_command_async(f"gaia/syedather/command/{data.node_id}", response_status)
 
     return sensor_entry

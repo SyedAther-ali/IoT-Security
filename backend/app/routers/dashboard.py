@@ -7,6 +7,19 @@ from datetime import datetime, timedelta
 
 router = APIRouter()
 
+MQTT_BROKER = "broker.hivemq.com"
+TOPIC_COMMAND = "gaia/syedather/command"
+
+def publish_mqtt_command_async(topic: str, payload: str):
+    import threading
+    import paho.mqtt.publish as publish
+    def _run():
+        try:
+            publish.single(topic, payload, hostname=MQTT_BROKER)
+        except Exception as e:
+            print(f"[MQTT ASYNC ERR] Failed to publish {payload} to {topic}: {e}")
+    threading.Thread(target=_run, daemon=True).start()
+
 @router.get("/dashboard-data")
 def get_dashboard_data(db: Session = Depends(get_db)):
     # Get latest 50 sensor readings
@@ -27,10 +40,7 @@ def get_dashboard_data(db: Session = Depends(get_db)):
         for node in suspicious:
             node.status = "trusted"
             # Auto-publish SAFE MQTT command to reset the physical hardware
-            try:
-                publish.single(f"{TOPIC_COMMAND}/{node.node_id}", "SAFE", hostname=MQTT_BROKER)
-            except Exception as e:
-                print(f"Failed to auto-recover MQTT command for {node.node_id}: {e}")
+            publish_mqtt_command_async(f"{TOPIC_COMMAND}/{node.node_id}", "SAFE")
         db.commit()
     # ------------------------------------
 
@@ -79,9 +89,7 @@ def get_alerts(db: Session = Depends(get_db)):
     alerts = db.query(models.SensorData).order_by(models.SensorData.timestamp.desc()).limit(20).all()
     return alerts
 
-import paho.mqtt.publish as publish
-MQTT_BROKER = "broker.hivemq.com"
-TOPIC_COMMAND = "gaia/syedather/command"
+# MQTT publish imports handled at top
 
 @router.post("/nodes/{node_id}/isolate")
 def isolate_node(node_id: str, db: Session = Depends(get_db)):
@@ -93,10 +101,7 @@ def isolate_node(node_id: str, db: Session = Depends(get_db)):
     db.commit()
     
     # Instantly trigger MQTT response
-    try:
-        publish.single(f"{TOPIC_COMMAND}/{node_id}", "BLOCKED", hostname=MQTT_BROKER)
-    except Exception as e:
-        print(f"Failed to publish MQTT block command: {e}")
+    publish_mqtt_command_async(f"{TOPIC_COMMAND}/{node_id}", "BLOCKED")
         
     # Log it
     from app.engines.security_ai import log_security_event, log_pipeline_stage
@@ -124,10 +129,7 @@ def recover_node(node_id: str, db: Session = Depends(get_db)):
     db.commit()
     
     # Instantly trigger MQTT response to recover hardware
-    try:
-        publish.single(f"{TOPIC_COMMAND}/{node_id}", "SAFE", hostname=MQTT_BROKER)
-    except Exception as e:
-        print(f"Failed to publish MQTT recover command: {e}")
+    publish_mqtt_command_async(f"{TOPIC_COMMAND}/{node_id}", "SAFE")
         
     # Log it
     from app.engines.security_ai import log_security_event, log_pipeline_stage
