@@ -25,7 +25,7 @@ async def receive_sensor_data(data: schemas.SensorDataCreate, request: Request, 
     )
 
     if not is_allowed:
-        if event_type != "blocked_ip_access":
+        if event_type not in ["blocked_ip_access", "isolated_node"]:
             security_ai.log_security_event(db, client_ip, data.node_id, event_type, reason)
         try:
             from paho.mqtt import publish

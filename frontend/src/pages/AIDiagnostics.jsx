@@ -10,6 +10,7 @@ export default function AIDiagnostics() {
   const [stats, setStats] = useState({ online_nodes: 0, suspicious_nodes: 0 });
   const logContainerRef = useRef(null);
   const seenLogIds = useRef(new Set());
+  const lastNodeSeverities = useRef({});
 
   useEffect(() => {
     // Initial system logs
@@ -70,11 +71,17 @@ export default function AIDiagnostics() {
               const logId = `alt-${alert.id}`;
               if (!seenLogIds.current.has(logId)) {
                 seenLogIds.current.add(logId);
-                newLogs.push({
-                  time: alert.timestamp,
-                  text: `[LANDSLIDE_AI] Risk assessment on Node ${alert.node_id}: ${alert.alert_severity} (Score: ${alert.risk_score.toFixed(1)})`,
-                  color: alert.alert_severity === 'SAFE' ? 'text-slate-300' : 'text-danger'
-                });
+                
+                // State Transition Check (Enterprise SOC Mode)
+                const lastSev = lastNodeSeverities.current[alert.node_id];
+                if (lastSev !== alert.alert_severity) {
+                  lastNodeSeverities.current[alert.node_id] = alert.alert_severity;
+                  newLogs.push({
+                    time: alert.timestamp,
+                    text: `[LANDSLIDE_AI] Node ${alert.node_id} status updated to: ${alert.alert_severity} (Score: ${alert.risk_score.toFixed(1)})`,
+                    color: alert.alert_severity === 'SAFE' ? 'text-safe font-semibold' : 'text-danger font-bold'
+                  });
+                }
               }
             });
           }
