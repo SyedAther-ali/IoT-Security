@@ -114,6 +114,14 @@ def recover_node(node_id: str, db: Session = Depends(get_db)):
         return {"error": "Node not found"}
         
     node.status = "trusted"
+    
+    # Fully clear any blocked IP address associated with this node from the blacklist!
+    # Query logs to find the IP this node was using
+    assoc_logs = db.query(models.SecurityLog).filter(models.SecurityLog.node_id == node_id).all()
+    for log in assoc_logs:
+        if log.ip_address and log.ip_address != "internal":
+            db.query(models.BlockedIP).filter(models.BlockedIP.ip_address == log.ip_address).delete()
+            
     db.commit()
     
     # Instantly trigger MQTT response to recover hardware
@@ -124,8 +132,8 @@ def recover_node(node_id: str, db: Session = Depends(get_db)):
         
     # Log it
     from app.engines.security_ai import log_security_event, log_pipeline_stage
-    log_pipeline_stage(db, "RECOVER", f"Admin manually recovered node {node_id}")
-    log_security_event(db, "ADMIN_DASHBOARD", node_id, "manual_recovery", "Node manually recovered by admin.")
+    log_pipeline_stage(db, "RECOVER", f"Admin manually recovered node {node_id} and cleared its IP block.")
+    log_security_event(db, "ADMIN_DASHBOARD", node_id, "manual_recovery", "Node manually recovered by admin and IP whitelisted.")
     
     return {"message": f"Node {node_id} recovered"}
 
