@@ -8,6 +8,28 @@ import toast from 'react-hot-toast';
 const API_URL = import.meta.env.VITE_API_URL || 'https://iot-security-068d.onrender.com';
 
 export default function Dashboard() {
+  const formatLocalTime = (timestamp, timeOnly = false) => {
+    if (!timestamp) return "-";
+    let isoStr = timestamp;
+    if (!isoStr.endsWith('Z') && !isoStr.includes('+')) {
+      isoStr = isoStr.replace(' ', 'T') + 'Z';
+    }
+    const d = new Date(isoStr);
+    if (timeOnly) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    return d.toLocaleString();
+  };
+
+  const formatChartTime = (timestamp) => {
+    if (!timestamp) return "";
+    let isoStr = timestamp;
+    if (!isoStr.endsWith('Z') && !isoStr.includes('+')) {
+      isoStr = isoStr.replace(' ', 'T') + 'Z';
+    }
+    return new Date(isoStr).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
   const [data, setData] = useState({
     stats: { total_nodes: 0, suspicious_nodes: 0, blocked_ips: 0, online_nodes: 0 },
     recent_telemetry: [],
@@ -72,7 +94,7 @@ export default function Dashboard() {
 
   // Format chart data (reverse so newest is on the right)
   const chartData = [...recentTelemetry].reverse().map(t => ({
-    time: new Date(t.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    time: formatChartTime(t.timestamp),
     moisture: t.moisture,
     shake: t.shake * 10, // Scale for visibility
     risk: t.risk_score
@@ -265,7 +287,7 @@ export default function Dashboard() {
                       }`}>
                         {isPipeline ? `[${stage}] SYS_AGENT_2` : log.event_type.replace('_', ' ')}
                       </span>
-                      <span className="text-slate-500 text-xs">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                      <span className="text-slate-500 text-xs">{formatLocalTime(log.timestamp, true)}</span>
                     </div>
                     <p className={`${isPipeline ? 'text-slate-300' : 'text-slate-300'} mb-1`}>{log.description}</p>
                     <div className="flex gap-2 text-xs font-mono mt-2">
@@ -301,7 +323,7 @@ export default function Dashboard() {
                 <tr key={idx} className={`border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors ${
                   t.tampered ? 'bg-danger/10 hover:bg-danger/20 border-l-2 border-l-danger animate-pulse' : ''
                 }`}>
-                  <td className="px-4 py-3 font-mono text-xs">{new Date(t.timestamp).toLocaleTimeString()}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatLocalTime(t.timestamp, true)}</td>
                   <td className="px-4 py-3 font-medium text-white flex items-center gap-2">
                     {t.tampered && <AlertTriangle size={14} className="text-danger animate-bounce" />}
                     <span>{t.node_id}</span>

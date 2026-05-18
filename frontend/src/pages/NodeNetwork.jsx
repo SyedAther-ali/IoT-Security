@@ -6,6 +6,15 @@ import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 const API_URL = import.meta.env.VITE_API_URL || 'https://iot-security-068d.onrender.com';
 
 export default function NodeNetwork() {
+  const formatLocalTime = (timestamp) => {
+    if (!timestamp) return "-";
+    let isoStr = timestamp;
+    if (!isoStr.endsWith('Z') && !isoStr.includes('+')) {
+      isoStr = isoStr.replace(' ', 'T') + 'Z';
+    }
+    return new Date(isoStr).toLocaleTimeString();
+  };
+
   const [nodes, setNodes] = useState([]);
   const [bandwidthData, setBandwidthData] = useState([]);
   const [stats, setStats] = useState({ total: 0, online: 0, compromised: 0, offline: 0 });
@@ -149,7 +158,7 @@ export default function NodeNetwork() {
                     }`}>{node.status}</span>
                   </div>
                   
-                  <div className="text-xs text-slate-500 mb-4">Last seen: {new Date(node.last_seen).toLocaleTimeString()}</div>
+                  <div className="text-xs text-slate-500 mb-4">Last seen: {formatLocalTime(node.last_seen)}</div>
                   
                   <div className="grid grid-cols-3 gap-2 text-center text-xs">
                     <div className="bg-darker rounded py-1 border border-slate-800/50">

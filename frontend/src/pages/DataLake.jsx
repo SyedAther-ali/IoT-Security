@@ -6,6 +6,15 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 const API_URL = import.meta.env.VITE_API_URL || 'https://iot-security-068d.onrender.com';
 
 export default function DataLake() {
+  const formatLocalTime = (timestamp) => {
+    if (!timestamp) return "-";
+    let isoStr = timestamp;
+    if (!isoStr.endsWith('Z') && !isoStr.includes('+')) {
+      isoStr = isoStr.replace(' ', 'T') + 'Z';
+    }
+    return new Date(isoStr).toLocaleString();
+  };
+
   const [query, setQuery] = useState('SELECT * FROM telemetry\nWHERE risk_score > 0.8\nORDER BY timestamp DESC\nLIMIT 10;');
   const [queryResults, setQueryResults] = useState(null);
   const [isQuerying, setIsQuerying] = useState(false);
@@ -111,7 +120,7 @@ export default function DataLake() {
                   {queryResults.length === 0 && <tr><td colSpan="4" className="p-4 text-center">No results found</td></tr>}
                   {queryResults.map((row, i) => (
                     <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/80">
-                      <td className="px-4 py-2 font-mono text-xs">{new Date(row.timestamp).toLocaleString()}</td>
+                      <td className="px-4 py-2 font-mono text-xs">{formatLocalTime(row.timestamp)}</td>
                       <td className="px-4 py-2">{row.node_id}</td>
                       <td className="px-4 py-2 text-warning">{row.risk_score.toFixed(2)}</td>
                       <td className="px-4 py-2">{row.alert_severity}</td>

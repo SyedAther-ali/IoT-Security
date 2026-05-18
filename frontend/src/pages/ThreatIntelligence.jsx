@@ -1,21 +1,28 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { ShieldAlert, Map, AlertOctagon, Activity, Globe, Lock } from 'lucide-react';
+import { ShieldAlert, Activity, Globe, Lock, Shield, Server, Cpu, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://iot-security-068d.onrender.com';
 
 export default function ThreatIntelligence() {
   const [threatData, setThreatData] = useState([]);
   const [recentThreats, setRecentThreats] = useState([]);
+  const [nodes, setNodes] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`${API_URL}/threats`);
-        if (response.data) {
-          setThreatData(response.data.vectors || []);
-          setRecentThreats(response.data.recent_incidents || []);
+        const [threatRes, nodesRes] = await Promise.all([
+          axios.get(`${API_URL}/threats`),
+          axios.get(`${API_URL}/nodes`)
+        ]);
+        if (threatRes.data) {
+          setThreatData(threatRes.data.vectors || []);
+          setRecentThreats(threatRes.data.recent_incidents || []);
+        }
+        if (nodesRes.data) {
+          setNodes(nodesRes.data);
         }
       } catch (error) {
         console.error("Error fetching threat data", error);
@@ -27,6 +34,32 @@ export default function ThreatIntelligence() {
     return () => clearInterval(interval);
   }, []);
 
+  const formatLocalTime = (timestamp) => {
+    if (!timestamp) return "-";
+    let isoStr = timestamp;
+    if (!isoStr.endsWith('Z') && !isoStr.includes('+')) {
+      isoStr = isoStr.replace(' ', 'T') + 'Z';
+    }
+    return new Date(isoStr).toLocaleString([], {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
+
+  // Find active threats from logs
+  const activeBlockLog = recentThreats.find(t => t.ip_address && t.ip_address !== "internal" && !t.ip_address.includes("ADMIN"));
+  const attackerIp = activeBlockLog ? activeBlockLog.ip_address : "103.167.127.66";
+  const isCurrentlyAttacked = nodes.some(n => n.status === 'Compromised' || n.status === 'Isolated');
+  
+  // Find which specific node status is Isolated or Compromised
+  const isolatedNode = nodes.find(n => n.status === 'Compromised' || n.status === 'Isolated');
+  const isolatedNodeId = isolatedNode ? isolatedNode.node_id : "pi-node-1";
+
   return (
     <div className="p-8 space-y-6 h-full flex flex-col">
       <header className="mb-4">
@@ -34,33 +67,205 @@ export default function ThreatIntelligence() {
           <ShieldAlert className="text-danger" size={32} />
           Threat Intelligence
         </h2>
-        <p className="text-slate-400">Global threat map and attack vector analysis</p>
+        <p className="text-slate-400">Zero-Trust logical topology and real-time attack containment analysis</p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1">
-        {/* Global Threat Map Placeholder */}
-        <div className="glass-panel p-6 col-span-2 flex flex-col relative overflow-hidden group">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+        {/* Dynamic Interactive Threat Topology Map */}
+        <div className="glass-panel p-6 lg:col-span-2 flex flex-col relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-danger/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Globe className="text-blue-400" size={20} />
-            Global Threat Map
+            Zero-Trust Threat Topology Map
           </h3>
-          <div className="flex-1 bg-slate-900/50 rounded-lg border border-slate-800 flex items-center justify-center relative overflow-hidden">
-            {/* A simulated map overlay using a grid pattern and some pulsing "hotspots" */}
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+CjxwYXRoIGQ9Ik0wIDIwaDIwVjBIMHoiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSg1OSwgMTMwLCAyNDYsIDAuMSkiIHN0cm9rZS13aWR0aD0iMSIvPgo8L3N2Zz4=')] opacity-30"></div>
+          
+          <div className="flex-1 bg-slate-950 rounded-lg border border-slate-800 p-4 flex flex-col justify-between relative overflow-hidden min-h-[350px]">
+            {/* Grid Pattern Background */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b12_1px,transparent_1px),linear-gradient(to_bottom,#1e293b12_1px,transparent_1px)] bg-[size:24px_24px] opacity-40"></div>
             
-            <div className="absolute top-1/4 left-1/3 w-4 h-4">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-danger"></span>
-            </div>
-            
-            <div className="absolute top-1/2 right-1/4 w-3 h-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-warning"></span>
+            {/* HUD Status Header */}
+            <div className="flex justify-between items-center relative z-10 text-xs font-mono border-b border-slate-800 pb-2">
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full ${isCurrentlyAttacked ? 'bg-danger animate-pulse' : 'bg-safe'}`}></span>
+                <span className="text-slate-400">STATUS:</span>
+                <span className={isCurrentlyAttacked ? 'text-danger font-bold animate-pulse' : 'text-safe font-bold'}>
+                  {isCurrentlyAttacked ? 'ACTIVE ATTACK DETECTED & ISOLATED' : 'UPLINK NOMINAL / SECURE'}
+                </span>
+              </div>
+              <div className="text-slate-500">TARGET: {isCurrentlyAttacked ? isolatedNodeId : 'GLOBAL'}</div>
             </div>
 
-            <Map size={64} className="text-slate-700 opacity-50 absolute" />
-            <span className="relative z-10 text-slate-500 font-mono text-sm tracking-widest uppercase bg-darker/80 px-4 py-2 rounded">Live Map Uplink Established</span>
+            {/* Interactive Cyber Topology Diagram */}
+            <div className="flex-1 flex items-center justify-center relative min-h-[250px] z-10">
+              <svg className="w-full h-full min-h-[250px]" viewBox="0 0 700 250">
+                <defs>
+                  {/* Glowing neon filters */}
+                  <filter id="glow-green" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  <filter id="glow-red" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  <filter id="glow-blue" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+
+                {/* Animated CSS block inside SVG */}
+                <style>{`
+                  @keyframes redLaser {
+                    to { stroke-dashoffset: -20; }
+                  }
+                  @keyframes shieldPulse {
+                    0% { r: 18; opacity: 0.2; }
+                    50% { r: 28; opacity: 0.6; }
+                    100% { r: 18; opacity: 0.2; }
+                  }
+                  .laser-active {
+                    stroke-dasharray: 8, 4;
+                    animation: redLaser 0.8s linear infinite;
+                  }
+                  .shield-pulse-active {
+                    animation: shieldPulse 2s ease-in-out infinite;
+                  }
+                `}</style>
+
+                {/* 1. Attacker Node (Left) */}
+                <g transform="translate(100, 125)">
+                  {isCurrentlyAttacked && (
+                    <circle r="25" fill="#ef4444" opacity="0.15" className="shield-pulse-active" />
+                  )}
+                  <rect x="-45" y="-30" width="90" height="60" rx="6" fill="#020617" stroke={isCurrentlyAttacked ? "#ef4444" : "#475569"} strokeWidth="2" filter={isCurrentlyAttacked ? "url(#glow-red)" : ""} />
+                  <text y="-8" fill={isCurrentlyAttacked ? "#ef4444" : "#94a3b8"} fontSize="9" textAnchor="middle" fontWeight="bold" fontFamily="monospace">MALICIOUS IP</text>
+                  <text y="10" fill="#f8fafc" fontSize="8" textAnchor="middle" fontFamily="monospace">{attackerIp}</text>
+                  {isCurrentlyAttacked && (
+                    <circle cx="0" cy="-20" r="3" fill="#ef4444" className="animate-ping" />
+                  )}
+                </g>
+
+                {/* 2. GAIA Secure Gateway (Middle) */}
+                <g transform="translate(320, 125)">
+                  <circle r="30" fill="#020617" stroke={isCurrentlyAttacked ? "#eab308" : "#22c55e"} strokeWidth="2" filter={isCurrentlyAttacked ? "url(#glow-blue)" : "url(#glow-green)"} />
+                  <path d="M-8 -10 L8 -10 L10 2 C10 10 0 15 0 15 C0 15 -10 10 -10 2 Z" fill="none" stroke={isCurrentlyAttacked ? "#eab308" : "#22c55e"} strokeWidth="2" />
+                  <text y="-38" fill={isCurrentlyAttacked ? "#eab308" : "#22c55e"} fontSize="9" textAnchor="middle" fontWeight="bold" fontFamily="monospace">GAIA FIREWALL</text>
+                  <text y="42" fill="#94a3b8" fontSize="8" textAnchor="middle" fontFamily="monospace">GATEWAY</text>
+                </g>
+
+                {/* 3. Physical Raspberry Pi Node (Right Top) */}
+                <g transform="translate(540, 65)">
+                  {isCurrentlyAttacked && isolatedNodeId === "pi-node-1" ? (
+                    <g>
+                      <circle r="20" fill="#ef4444" opacity="0.2" className="shield-pulse-active" />
+                      <circle r="18" fill="#020617" stroke="#ef4444" strokeWidth="2" filter="url(#glow-red)" />
+                      <text y="-26" fill="#ef4444" fontSize="9" textAnchor="middle" fontWeight="black" fontFamily="monospace">ISOLATED</text>
+                    </g>
+                  ) : (
+                    <g>
+                      <circle r="18" fill="#020617" stroke="#22c55e" strokeWidth="2" filter="url(#glow-green)" />
+                      <text y="-26" fill="#22c55e" fontSize="9" textAnchor="middle" fontWeight="bold" fontFamily="monospace">TRUSTED</text>
+                    </g>
+                  )}
+                  <text y="5" fill="#f8fafc" fontSize="8" textAnchor="middle" fontWeight="bold" fontFamily="monospace">pi-node-1</text>
+                  <text y="30" fill="#64748b" fontSize="8" textAnchor="middle" fontFamily="monospace">(Physical Pi)</text>
+                </g>
+
+                {/* 4. Simulated Node 2 (Right Middle) */}
+                <g transform="translate(540, 125)">
+                  {isCurrentlyAttacked && isolatedNodeId === "pi-node-2" ? (
+                    <g>
+                      <circle r="20" fill="#ef4444" opacity="0.2" className="shield-pulse-active" />
+                      <circle r="18" fill="#020617" stroke="#ef4444" strokeWidth="2" filter="url(#glow-red)" />
+                      <text y="-26" fill="#ef4444" fontSize="9" textAnchor="middle" fontWeight="black" fontFamily="monospace">ISOLATED</text>
+                    </g>
+                  ) : (
+                    <g>
+                      <circle r="18" fill="#020617" stroke="#22c55e" strokeWidth="2" />
+                    </g>
+                  )}
+                  <text y="5" fill="#f8fafc" fontSize="8" textAnchor="middle" fontWeight="bold" fontFamily="monospace">pi-node-2</text>
+                </g>
+
+                {/* 5. Simulated Node 3 (Right Bottom) */}
+                <g transform="translate(540, 185)">
+                  {isCurrentlyAttacked && isolatedNodeId === "pi-node-3" ? (
+                    <g>
+                      <circle r="20" fill="#ef4444" opacity="0.2" className="shield-pulse-active" />
+                      <circle r="18" fill="#020617" stroke="#ef4444" strokeWidth="2" filter="url(#glow-red)" />
+                      <text y="-26" fill="#ef4444" fontSize="9" textAnchor="middle" fontWeight="black" fontFamily="monospace">ISOLATED</text>
+                    </g>
+                  ) : (
+                    <g>
+                      <circle r="18" fill="#020617" stroke="#22c55e" strokeWidth="2" />
+                    </g>
+                  )}
+                  <text y="5" fill="#f8fafc" fontSize="8" textAnchor="middle" fontWeight="bold" fontFamily="monospace">pi-node-3</text>
+                </g>
+
+                {/* CONNECTIONS & LASER BEAMS */}
+                
+                {/* Attacker -> Gateway */}
+                {isCurrentlyAttacked ? (
+                  <g>
+                    <path d="M 145 125 L 290 125" stroke="#ef4444" strokeWidth="3" fill="none" className="laser-active" filter="url(#glow-red)" />
+                    <text x="210" y="115" fill="#ef4444" fontSize="8" textAnchor="middle" fontWeight="bold" fontFamily="monospace" className="animate-pulse">DDoS / EXPLOIT FLOOD</text>
+                  </g>
+                ) : (
+                  <path d="M 145 125 L 290 125" stroke="#334155" strokeWidth="1" strokeDasharray="4, 4" fill="none" />
+                )}
+
+                {/* Gateway -> pi-node-1 */}
+                {isCurrentlyAttacked && isolatedNodeId === "pi-node-1" ? (
+                  <g>
+                    <path d="M 350 125 L 522 65" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="3, 3" fill="none" opacity="0.5" />
+                    <circle cx="436" cy="95" r="9" fill="#7f1d1d" stroke="#ef4444" strokeWidth="1" />
+                    <text x="436" y="98" fill="#f8fafc" fontSize="8" textAnchor="middle" fontWeight="bold" fontFamily="monospace">X</text>
+                    <text x="436" y="82" fill="#ef4444" fontSize="7" textAnchor="middle" fontWeight="black" fontFamily="monospace" className="animate-pulse">SEVERED BY SOAR</text>
+                  </g>
+                ) : (
+                  <path d="M 350 125 L 522 65" stroke="#22c55e" strokeWidth="1.5" fill="none" opacity="0.8" />
+                )}
+
+                {/* Gateway -> pi-node-2 */}
+                {isCurrentlyAttacked && isolatedNodeId === "pi-node-2" ? (
+                  <g>
+                    <path d="M 350 125 L 522 125" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="3, 3" fill="none" opacity="0.5" />
+                    <circle cx="436" cy="125" r="9" fill="#7f1d1d" stroke="#ef4444" strokeWidth="1" />
+                    <text x="436" y="128" fill="#f8fafc" fontSize="8" textAnchor="middle" fontWeight="bold" fontFamily="monospace">X</text>
+                  </g>
+                ) : (
+                  <path d="M 350 125 L 522 125" stroke="#22c55e" strokeWidth="1.5" fill="none" opacity="0.8" />
+                )}
+
+                {/* Gateway -> pi-node-3 */}
+                {isCurrentlyAttacked && isolatedNodeId === "pi-node-3" ? (
+                  <g>
+                    <path d="M 350 125 L 522 185" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="3, 3" fill="none" opacity="0.5" />
+                    <circle cx="436" cy="155" r="9" fill="#7f1d1d" stroke="#ef4444" strokeWidth="1" />
+                    <text x="436" y="158" fill="#f8fafc" fontSize="8" textAnchor="middle" fontWeight="bold" fontFamily="monospace">X</text>
+                  </g>
+                ) : (
+                  <path d="M 350 125 L 522 185" stroke="#22c55e" strokeWidth="1.5" fill="none" opacity="0.8" />
+                )}
+
+              </svg>
+            </div>
+
+            {/* Micro-animations and HUD controls description */}
+            <div className="text-[10px] text-slate-500 font-mono text-center border-t border-slate-900 pt-2">
+              ZERO-TRUST POLICY FRAMEWORK: ISOLATING COMPROMISED HARDWARE ON ENCRYPTED PORT 8000
+            </div>
           </div>
         </div>
 
@@ -114,7 +319,7 @@ export default function ThreatIntelligence() {
                 <tr><td colSpan="5" className="text-center py-4">No recent threats logged.</td></tr>
               ) : recentThreats.map((threat, idx) => (
                 <tr key={idx} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs">{new Date(threat.timestamp).toLocaleString()}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatLocalTime(threat.timestamp)}</td>
                   <td className="px-4 py-3 font-mono text-white">{threat.ip_address}</td>
                   <td className="px-4 py-3">{threat.node_id || 'Global'}</td>
                   <td className="px-4 py-3 text-warning uppercase font-bold">{threat.event_type.replace('_', ' ')}</td>

@@ -6,6 +6,15 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } 
 const API_URL = import.meta.env.VITE_API_URL || 'https://iot-security-068d.onrender.com';
 
 export default function AIDiagnostics() {
+  const formatLocalTime = (timestamp) => {
+    if (!timestamp) return "";
+    let isoStr = timestamp;
+    if (!isoStr.endsWith('Z') && !isoStr.includes('+')) {
+      isoStr = isoStr.replace(' ', 'T') + 'Z';
+    }
+    return new Date(isoStr).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState({ online_nodes: 0, suspicious_nodes: 0 });
   const logContainerRef = useRef(null);
@@ -143,7 +152,7 @@ export default function AIDiagnostics() {
           >
             {logs.map((log, index) => (
               <div key={index} className={`${log.color} opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]`}>
-                <span className="text-slate-600 mr-4">{new Date(log.time).toISOString().split('T')[1].substring(0, 8)}</span>
+                <span className="text-slate-600 mr-4">{formatLocalTime(log.time)}</span>
                 {log.text}
               </div>
             ))}
