@@ -42,9 +42,10 @@ def check_security(db: Session, ip_address: str, payload_node_id: str, payload_a
         if (now - blocked.blocked_at).total_seconds() > 30:
             db.delete(blocked)
             
-            # Reset node status if it exists
+            # Reset node status if it exists and was marked "suspicious" (auto-flagged).
+            # Manually isolated nodes must not be auto-recovered.
             node = db.query(models.Node).filter(models.Node.node_id == payload_node_id).first()
-            if node:
+            if node and node.status == "suspicious":
                 node.status = "trusted"
                 
             db.commit()

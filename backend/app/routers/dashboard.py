@@ -21,8 +21,9 @@ def get_dashboard_data(db: Session = Depends(get_db)):
         db.delete(block)
     
     if expired_blocks:
-        # Also reset any nodes that were stuck in "suspicious" or "isolated"
-        suspicious = db.query(models.Node).filter(models.Node.status.in_(["suspicious", "isolated"])).all()
+        # Only reset nodes that were auto-flagged as "suspicious" due to threat triggers.
+        # Manually "isolated" nodes must remain isolated until manually recovered by the Admin!
+        suspicious = db.query(models.Node).filter(models.Node.status == "suspicious").all()
         for node in suspicious:
             node.status = "trusted"
             # Auto-publish SAFE MQTT command to reset the physical hardware
