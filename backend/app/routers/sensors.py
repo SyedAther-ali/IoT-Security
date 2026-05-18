@@ -25,7 +25,8 @@ async def receive_sensor_data(data: schemas.SensorDataCreate, request: Request, 
     )
 
     if not is_allowed:
-        security_ai.log_security_event(db, client_ip, data.node_id, event_type, reason)
+        if event_type != "blocked_ip_access":
+            security_ai.log_security_event(db, client_ip, data.node_id, event_type, reason)
         try:
             from paho.mqtt import publish
             publish.single(f"gaia/syedather/command/{data.node_id}", "BLOCKED", hostname="broker.hivemq.com")

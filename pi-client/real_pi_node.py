@@ -45,6 +45,42 @@ GPIO.setup(LED_BLUE, GPIO.OUT)
 GPIO.setup(LED_WHITE, GPIO.OUT)
 GPIO.setup(BUZZER_PIN, GPIO.OUT)
 
+# --- I2C LCD1602 RGB DISPLAY SETUP (FAIL-SAFE) ---
+lcd = None
+
+try:
+    from dfrgblcdpy import DFRRGBLCDPY
+    # Initialize the RGB LCD
+    lcd = DFRRGBLCDPY()
+    lcd.set_color_white()
+    lcd.clear()
+    lcd.print_out("GAIA BOOTING...")
+    print("[SYS] Fail-safe: DFRobot LCD1602 RGB Display successfully initialized!")
+except Exception as e:
+    print(f"[WARNING] DFRobot LCD1602 RGB Display failed to load (Plug it in later!): {e}")
+
+def update_lcd_screen(line1, line2="", r=255, g=255, b=255):
+    """Safely writes 2 lines of text (max 16 chars) and sets the RGB backlight color using the library's set_RGB method."""
+    if lcd is None:
+        return
+    try:
+        lcd.clear()
+        
+        # Set RGB color using correct case-sensitive library method
+        lcd.set_RGB(r, g, b)
+        
+        # Write Line 1 (Truncated to 16 chars)
+        lcd.set_cursor(0, 0)
+        lcd.print_out(line1[:16])
+        
+        # Write Line 2 (Truncated to 16 chars)
+        if line2:
+            lcd.set_cursor(0, 1)
+            lcd.print_out(line2[:16])
+    except Exception as e:
+        print(f"[LCD ERR] Failed to write to display: {e}")
+
+
 def set_hardware_alert_status(status):
     """Sets the LED state and Buzzer based on MQTT Commands from Cloud."""
     GPIO.output(LED_GREEN, GPIO.LOW)
@@ -54,6 +90,11 @@ def set_hardware_alert_status(status):
     
     if status == "SAFE":
         GPIO.output(LED_GREEN, GPIO.HIGH)
+        update_lcd_screen(
+            "STATUS: SECURE",
+            "GAIA ACTIVE",
+            r=0, g=255, b=0 # Bright Green!
+        )
     elif status == "WARNING" or status == "LANDSLIDE RISK":
         GPIO.output(LED_BLUE, GPIO.HIGH)
         if status == "LANDSLIDE RISK":
@@ -61,9 +102,25 @@ def set_hardware_alert_status(status):
             GPIO.output(BUZZER_PIN, GPIO.HIGH)
             time.sleep(0.1)
             GPIO.output(BUZZER_PIN, GPIO.LOW)
+            update_lcd_screen(
+                "STATUS: CRITICAL",
+                "EVACUATE AREA!",
+                r=255, g=0, b=0 # Bright Red!
+            )
+        else:
+            update_lcd_screen(
+                "STATUS: WARNING",
+                "SUSPICIOUS DATA",
+                r=255, g=128, b=0 # Bright Orange/Yellow!
+            )
     elif status == "DANGER" or status == "BLOCKED":
         GPIO.output(LED_WHITE, GPIO.HIGH)  # Turn on bright White strobe
         GPIO.output(BUZZER_PIN, GPIO.HIGH) # Turn on Siren
+        update_lcd_screen(
+            "!!! QUARANTINE !!!",
+            "SYSTEM BLOCKED",
+            r=255, g=0, b=0 # Bright Red!
+        )
 
 def read_temperature():
     return 24.5 # Mock temp fallback
@@ -173,6 +230,14 @@ try:
             # Fire and forget over MQTT
             client.publish(TOPIC_TELEMETRY, json.dumps(payload))
             print(f"--> MQTT Published")
+            
+            # If screen is active and node is secure (Green LED is on), display live telemetry
+            if lcd is not None and GPIO.input(LED_GREEN) == GPIO.HIGH:
+                update_lcd_screen(
+                    f"T:{payload['temperature']}C  M:{payload['moisture']}%",
+                    f"Tilt:{payload['tilt']} deg",
+                    r=0, g=255, b=0 # Bright Green!
+                )
 
         time.sleep(0.01)
 
