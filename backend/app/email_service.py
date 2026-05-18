@@ -24,7 +24,7 @@ def _send_email_async(subject: str, body: str):
         
         msg.attach(MIMEText(body, 'plain'))
         
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=5)
         server.starttls()
         server.login(SENDER_EMAIL, APP_PASSWORD)
         text = msg.as_string()
@@ -60,7 +60,6 @@ def send_security_alert(node_id: str, ip_address: str, event_type: str, reason: 
     - GAIA Security Operations Center
     """
     
-    # Run synchronously for debugging
-    import sys
-    print(f"[SYS] Attempting to send email to {SENDER_EMAIL}...", flush=True)
-    _send_email_async(subject, body)
+    # Run in background with thread to prevent blocking the API
+    print(f"[SYS] Queuing email to {SENDER_EMAIL} in background...", flush=True)
+    threading.Thread(target=_send_email_async, args=(subject, body), daemon=True).start()
