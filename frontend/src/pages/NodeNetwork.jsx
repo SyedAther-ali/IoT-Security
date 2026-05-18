@@ -38,7 +38,7 @@ export default function NodeNetwork() {
           let online = 0, comp = 0, off = 0;
           liveNodes.forEach(n => {
             if (n.status === 'Active') online++;
-            else if (n.status === 'Compromised') comp++;
+            else if (n.status === 'Compromised' || n.status === 'Isolated') comp++;
             else if (n.status === 'Offline') off++;
           });
           setStats({ total: liveNodes.length, online, compromised: comp, offline: off });
