@@ -75,9 +75,8 @@ def get_nodes(db: Session = Depends(get_db)):
 
 @router.get("/alerts")
 def get_alerts(db: Session = Depends(get_db)):
-    alerts = db.query(models.SensorData).filter(
-        models.SensorData.alert_severity.in_(["WARNING", "LANDSLIDE RISK"])
-    ).order_by(models.SensorData.timestamp.desc()).limit(20).all()
+    # Return all recent assessments so the diagnostics console streams continuous live data (including SAFE states)
+    alerts = db.query(models.SensorData).order_by(models.SensorData.timestamp.desc()).limit(20).all()
     return alerts
 
 import paho.mqtt.publish as publish

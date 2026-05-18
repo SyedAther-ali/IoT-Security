@@ -25,7 +25,7 @@ export default function Dashboard() {
         if (response.data && response.data.recent_telemetry) {
           setData(response.data);
           
-          // Trigger global toasts for new SIM Pipeline stages
+          // Trigger global toasts for new SIM Pipeline stages (clutter-free)
           if (response.data.recent_logs) {
             response.data.recent_logs.reverse().forEach(log => {
               const logId = `dash-${log.timestamp}-${log.id || log.ip_address}`;
@@ -34,12 +34,10 @@ export default function Dashboard() {
                 
                 if (log.event_type.startsWith('pipeline_')) {
                   const stage = log.event_type.replace('pipeline_', '');
-                  if (stage === 'DETECT' || stage === 'ANALYZE') {
-                    toast.error(`[SIM ${stage}] ${log.description}`, { icon: '⚠️', duration: 4000 });
-                  } else if (stage === 'CONTAIN' || stage === 'ERADICATE') {
-                    toast.error(`[SIM ${stage}] ${log.description}`, { icon: '🛑', duration: 5000, style: { border: '1px solid #ef4444' } });
+                  if (stage === 'DETECT') {
+                    toast.error(`[SIM THREAT] ${log.description}`, { icon: '⚠️', duration: 5000 });
                   } else if (stage === 'RECOVER') {
-                    toast.success(`[SIM ${stage}] ${log.description}`, { icon: '✅', duration: 4000 });
+                    toast.success(`[SIM RECOVERED] ${log.description}`, { icon: '✅', duration: 5000 });
                   }
                 }
               }
@@ -69,9 +67,9 @@ export default function Dashboard() {
     risk: t.risk_score
   }));
 
-  // Calculate overall system status
+  // Calculate overall system status (instant updates, no historical latency)
   const isUnderAttack = stats.suspicious_nodes > 0 || stats.blocked_ips > 0;
-  const hasLandslideRisk = recentTelemetry.some(t => t.alert_severity === "LANDSLIDE RISK");
+  const hasLandslideRisk = recentTelemetry.length > 0 && recentTelemetry[0].alert_severity === "LANDSLIDE RISK";
   
   let systemStatus = "NORMAL";
   let statusColor = "text-safe";
