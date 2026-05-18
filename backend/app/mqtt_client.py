@@ -35,7 +35,8 @@ def on_message(client, userdata, msg):
         )
         
         if not is_allowed:
-            security_ai.log_security_event(db, client_ip, node_id, event_type, reason)
+            if event_type not in ["blocked_ip_access", "isolated_node"]:
+                security_ai.log_security_event(db, client_ip, node_id, event_type, reason)
             client.publish(f"{TOPIC_COMMAND}/{node_id}", "BLOCKED")
             db.close()
             return
