@@ -91,7 +91,8 @@ async def receive_sensor_data(data: schemas.SensorDataCreate, request: Request, 
     # Publish Instant Status Back to Node over MQTT
     try:
         from paho.mqtt import publish
-        publish.single(f"gaia/syedather/command/{data.node_id}", severity, hostname="broker.hivemq.com")
+        response_status = "BLOCKED" if node.status in ["suspicious", "isolated"] else severity
+        publish.single(f"gaia/syedather/command/{data.node_id}", response_status, hostname="broker.hivemq.com")
     except Exception:
         pass
 

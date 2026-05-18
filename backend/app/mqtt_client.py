@@ -93,7 +93,8 @@ def on_message(client, userdata, msg):
         db.commit()
         
         # 6. Publish Instant Status Back to Node!
-        client.publish(f"{TOPIC_COMMAND}/{node_id}", severity)
+        response_status = "BLOCKED" if node.status in ["suspicious", "isolated"] else severity
+        client.publish(f"{TOPIC_COMMAND}/{node_id}", response_status)
         db.close()
         
     except Exception as e:

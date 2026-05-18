@@ -100,14 +100,20 @@ def phase_3_ddos():
     print_attacker(f"[*] Flood Complete. Successful: {success}, Blocked: {blocked}", "cyan")
 
 if __name__ == "__main__":
-    print_attacker("--- PROJECT GAIA MITM ATTACK SCRIPT ---", "cyan")
+    print_attacker("--- PROJECT GAIA MITM ATTACK SCRIPT (CONTINUOUS ENTERPRISE MODE) ---", "cyan")
+    print_attacker("Press Ctrl+C to terminate the attack sequence once containment is verified.\n", "yellow")
     
     phase_1_stealth()
     time.sleep(2)
     
-    phase_2_poisoning()
-    time.sleep(3)
-    
-    phase_3_ddos()
-    
-    print_attacker("\n--- ATTACK SEQUENCE COMPLETE ---", "cyan")
+    try:
+        wave = 1
+        while True:
+            print_attacker(f"\n>>> LAUNCHING ATTACK WAVE #{wave} <<<", "red")
+            phase_2_poisoning()
+            time.sleep(1.5)
+            phase_3_ddos()
+            time.sleep(2)
+            wave += 1
+    except KeyboardInterrupt:
+        print_attacker("\n[!] ATTACK SEQUENCE TERMINATED BY DEFENDER AGENT/ADMIN.", "green")
