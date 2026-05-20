@@ -534,9 +534,9 @@ To test the autonomous SOAR defense loop:
 
 ## 👥 Authors & Contributors
 
-*   **[Your Name Here]** - *Lead Architect & Full-Stack IoT Engineer* - [GitHub](https://github.com/yourusername)
-*   **[Contributor Name Here]** - *Embedded Systems & Cybersecurity Researcher* - [GitHub](https://github.com/contributorusername)
-
+*   **Syed Ather Ali** 
+*   **Mohd Shahed ALi**
+*   **Mohd Abdul Adnan Khan**
 ---
 
 ## 🏆 Project Accomplishments Summary
