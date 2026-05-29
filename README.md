@@ -273,7 +273,7 @@ To test the autonomous SOAR defense loop:
 ## 👥 Authors & Contributors
 
 *   **Syed Ather Ali** 
-*   **Mohd Shahed ALi**
+*   **Mohd Shahed Ali**
 *   **Mohd Abdul Adnan Khan**
 ---
 
