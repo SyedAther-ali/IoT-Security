@@ -1,3 +1,12 @@
+
+
+https://github.com/user-attachments/assets/59e743a5-6441-46c2-a350-d1882a6a85ee
+
+
+
+
+
+
 # 🌍 Project GAIA: Secure, Zero-Trust AI-Powered Geotechnical IoT Platform
 
 > **Predictive Natural Disaster Modeling meets Autonomous Cyber-Defense Security.**
